@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import { inboxAPI } from './utils/api';
@@ -18,7 +17,7 @@ import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';
 import ContentCalendar from './components/Calendar/ContentCalendar';
 import AccountsPage from './components/Auth/AccountsPage';
 
-// Auth callback handler
+// Auth callback handler for redirect-based OAuth (non-popup flow)
 function AuthCallback() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -26,18 +25,33 @@ function AuthCallback() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const error = params.get('error');
+
     if (token) {
-      // Decode basic user info from token (in real app fetch /auth/me)
       localStorage.setItem('nepalflow_token', token);
       window.location.href = '/';
     } else {
-      navigate('/login');
+      navigate('/login', { state: { error: error || 'Authentication failed' } });
     }
-  }, []);
+  }, []); // eslint-disable-line
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full"></div>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}
+    >
+      <div className="text-center">
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
+        >
+          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-white/50 text-sm mt-4">Completing sign in…</p>
+      </div>
     </div>
   );
 }
@@ -45,9 +59,7 @@ function AuthCallback() {
 // Protected layout wrapper
 function AppLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const location = useLocation();
 
-  // Poll unread count every 60 seconds
   useEffect(() => {
     const fetchUnread = () => {
       inboxAPI.unreadCount()
@@ -62,16 +74,18 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar unreadCount={unreadCount} />
-      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
-        <Routes>
-          <Route path="/"          element={<DashboardPage />} />
-          <Route path="/compose"   element={<PostComposer />} />
-          <Route path="/inbox"     element={<UnifiedInbox />} />
-          <Route path="/analytics" element={<AnalyticsDashboard />} />
-          <Route path="/calendar"  element={<ContentCalendar />} />
-          <Route path="/accounts"  element={<AccountsPage />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
-        </Routes>
+      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          <Routes>
+            <Route path="/"          element={<DashboardPage />} />
+            <Route path="/compose"   element={<PostComposer />} />
+            <Route path="/inbox"     element={<UnifiedInbox />} />
+            <Route path="/analytics" element={<AnalyticsDashboard />} />
+            <Route path="/calendar"  element={<ContentCalendar />} />
+            <Route path="/accounts"  element={<AccountsPage />} />
+            <Route path="*"          element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
       <MobileNav unreadCount={unreadCount} />
     </div>
@@ -82,10 +96,20 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}
+    >
       <div className="text-center">
-        <div className="w-12 h-12 rounded-2xl bg-primary-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">N</div>
-        <div className="animate-spin w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full mx-auto"></div>
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
+          style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%)' }}
+        >
+          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
       </div>
     </div>
   );
@@ -99,9 +123,13 @@ export default function App() {
       <Toaster
         position="top-right"
         toastOptions={{
-          className: 'text-sm',
+          className: 'text-sm font-medium',
           duration: 4000,
-          style: { borderRadius: '12px', padding: '12px 16px' },
+          style: {
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+          },
           success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
           error:   { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
         }}

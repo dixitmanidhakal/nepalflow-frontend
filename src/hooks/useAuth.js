@@ -25,8 +25,21 @@ export function AuthProvider({ children }) {
 
   const login = (token, userData) => {
     localStorage.setItem('nepalflow_token', token);
-    setUser(userData);
-    if (userData.language) i18n.changeLanguage(userData.language);
+    if (userData) {
+      setUser(userData);
+      if (userData.language) i18n.changeLanguage(userData.language);
+    } else {
+      // Fetch user data if not provided (e.g., right after OAuth popup)
+      authAPI.getMe(token)
+        .then(res => {
+          setUser(res.data.user);
+          if (res.data.user?.language) i18n.changeLanguage(res.data.user.language);
+        })
+        .catch(() => {
+          // If fetch fails, still set a placeholder so ProtectedRoute passes
+          setUser({ id: 'pending', name: 'User' });
+        });
+    }
   };
 
   const logout = () => {

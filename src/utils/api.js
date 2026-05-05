@@ -4,7 +4,7 @@
 
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -32,9 +32,13 @@ api.interceptors.response.use(
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
 export const authAPI = {
-  devLogin:       (data) => api.post('/auth/dev-login', data),
-  getMe:          ()     => api.get('/auth/me'),
-  updateLanguage: (lang) => api.patch('/auth/me/language', { language: lang }),
+  devLogin:       (data)  => api.post('/auth/dev-login', data),
+  // Accepts an optional token override (used right after OAuth popup before AuthContext updates)
+  getMe:          (token) => api.get('/auth/me', token ? {
+    headers: { Authorization: `Bearer ${token}` }
+  } : {}),
+  updateLanguage: (lang)  => api.patch('/auth/me/language', { language: lang }),
+  updateProfile:  (data)  => api.patch('/auth/me', data),
 };
 
 // ─── Social Accounts ───────────────────────────────────────────────────────
