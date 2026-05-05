@@ -213,7 +213,12 @@ export default function TemplatesPage() {
         toast.success('Template created! 🎉');
       }
       await fetchTemplates();
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed to save'); throw err; }
+    } catch (err) {
+      const msg = err.response?.data?.error
+        || (err.code === 'ERR_NETWORK' ? 'Cannot connect to server. Is the backend running?' : 'Failed to save template');
+      toast.error(msg);
+      throw err;
+    }
   };
 
   const handleDelete = async (id) => {

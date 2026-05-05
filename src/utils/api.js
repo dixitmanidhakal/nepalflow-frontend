@@ -76,14 +76,19 @@ export const analyticsAPI = {
   sync:      ()       => api.post('/api/analytics/sync'),
 };
 
-// ─── AI Content Generator ──────────────────────────────────────────────────
 // ─── AI Content Generator (Grok-powered) ───────────────────────────────────
 export const aiAPI = {
-  generate:  (data)   => api.post('/api/ai/generate', data),
-  hashtags:  (data)   => api.post('/api/ai/hashtags', data),
-  bestTime:  (params) => api.get('/api/ai/best-time', { params }),
-  insights:  (params) => api.get('/api/ai/insights', { params }),
-  history:   (params) => api.get('/api/ai/history', { params }),
+  status:                   ()       => api.get('/api/ai/status'),
+  generate:                 (data)   => api.post('/api/ai/generate', data),
+  rewrite:                  (data)   => api.post('/api/ai/rewrite', data),
+  hashtags:                 (data)   => api.post('/api/ai/hashtags', data),
+  replySuggestion:          (data)   => api.post('/api/ai/reply-suggestion', data),
+  translate:                (data)   => api.post('/api/ai/translate', data),
+  caption:                  (data)   => api.post('/api/ai/caption', data),
+  autoResponderSuggestion:  (data)   => api.post('/api/ai/auto-responder-suggestion', data),
+  bestTime:                 (params) => api.get('/api/ai/best-time', { params }),
+  insights:                 (params) => api.get('/api/ai/insights', { params }),
+  history:                  (params) => api.get('/api/ai/history', { params }),
 };
 
 // ─── Content Templates ─────────────────────────────────────────────────────
