@@ -8,7 +8,7 @@ import { inboxAPI } from './utils/api';
 import Sidebar from './components/Common/Sidebar';
 import MobileNav from './components/Common/MobileNav';
 
-// Pages & Components
+// Core Pages
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PostComposer from './components/Composer/PostComposer';
@@ -16,6 +16,15 @@ import UnifiedInbox from './components/Inbox/UnifiedInbox';
 import AnalyticsDashboard from './components/Analytics/AnalyticsDashboard';
 import ContentCalendar from './components/Calendar/ContentCalendar';
 import AccountsPage from './components/Auth/AccountsPage';
+
+// Advanced Feature Pages
+import AIGeneratorPage from './pages/AIGeneratorPage';
+import TemplatesPage from './pages/TemplatesPage';
+import AutoRespondersPage from './pages/AutoRespondersPage';
+import RSSFeedsPage from './pages/RSSFeedsPage';
+import BulkQueuePage from './pages/BulkQueuePage';
+import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 // Auth callback handler for redirect-based OAuth (non-popup flow)
 function AuthCallback() {
@@ -77,13 +86,26 @@ function AppLayout() {
       <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto min-h-screen">
         <div className="max-w-7xl mx-auto">
           <Routes>
-            <Route path="/"          element={<DashboardPage />} />
-            <Route path="/compose"   element={<PostComposer />} />
-            <Route path="/inbox"     element={<UnifiedInbox />} />
-            <Route path="/analytics" element={<AnalyticsDashboard />} />
-            <Route path="/calendar"  element={<ContentCalendar />} />
-            <Route path="/accounts"  element={<AccountsPage />} />
-            <Route path="*"          element={<Navigate to="/" replace />} />
+            {/* Core */}
+            <Route path="/"              element={<DashboardPage />} />
+            <Route path="/compose"       element={<PostComposer />} />
+            <Route path="/inbox"         element={<UnifiedInbox />} />
+            <Route path="/analytics"     element={<AnalyticsDashboard />} />
+            <Route path="/calendar"      element={<ContentCalendar />} />
+            <Route path="/accounts"      element={<AccountsPage />} />
+
+            {/* Automation & AI */}
+            <Route path="/ai-studio"       element={<AIGeneratorPage />} />
+            <Route path="/templates"       element={<TemplatesPage />} />
+            <Route path="/auto-responders" element={<AutoRespondersPage />} />
+            <Route path="/rss-feeds"       element={<RSSFeedsPage />} />
+            <Route path="/queue"           element={<BulkQueuePage />} />
+
+            {/* Account */}
+            <Route path="/notifications"   element={<NotificationsPage />} />
+            <Route path="/settings"        element={<SettingsPage />} />
+
+            <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>

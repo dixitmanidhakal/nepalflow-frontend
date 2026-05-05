@@ -8,6 +8,12 @@
     "analytics": "Analytics",
     "calendar": "Calendar",
     "accounts": "Accounts",
+    "ai_studio": "AI Studio",
+    "templates": "Templates",
+    "auto_responders": "Auto-Responders",
+    "rss_feeds": "RSS Feeds",
+    "queue": "Bulk Queue",
+    "notifications": "Notifications",
     "settings": "Settings",
     "logout": "Logout"
   },
@@ -130,6 +136,57 @@
     "connecting": "Connecting...",
     "connected": "Account connected successfully!",
     "disconnected": "Account disconnected"
+  },
+  "ai": {
+    "title": "AI Studio",
+    "generate": "Generate Content",
+    "hashtags": "Hashtag Analyzer",
+    "best_time": "Best Time to Post",
+    "insights": "AI Insights",
+    "topic_placeholder": "e.g. New product launch, Festival sale, Business update",
+    "generating": "Generating...",
+    "regenerate": "Regenerate",
+    "use_in_composer": "Use in Composer",
+    "tone": "Content Tone",
+    "niche": "Your Niche",
+    "platform": "Platform"
+  },
+  "templates": {
+    "title": "Content Templates",
+    "create": "New Template",
+    "use_template": "Use Template",
+    "no_templates": "No templates yet. Create your first template!",
+    "variables_hint": "Use {{variable}} for dynamic content"
+  },
+  "auto_responders": {
+    "title": "Auto-Responders",
+    "create": "New Responder",
+    "test": "Test Rules",
+    "no_responders": "No auto-responders yet"
+  },
+  "rss": {
+    "title": "RSS Content Hub",
+    "add_feed": "Add RSS Feed",
+    "fetch_items": "Fetch Items",
+    "no_feeds": "No RSS feeds yet"
+  },
+  "queue": {
+    "title": "Bulk Post Queue",
+    "bulk_add": "Bulk Add",
+    "publish_all": "Publish All",
+    "no_items": "Queue is empty"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "clear_read": "Clear read",
+    "no_notifications": "No notifications yet"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "appearance": "Appearance",
+    "save": "Save Changes"
   },
   "common": {
     "loading": "Loading...",
