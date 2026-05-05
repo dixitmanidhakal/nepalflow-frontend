@@ -199,17 +199,15 @@ function GenerateTab({ grokAvailable }) {
         </div>
 
         {/* Additional context */}
-        {grokAvailable && (
-          <div>
-            <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
-              Additional Context <span className="text-gray-300 font-normal normal-case">(optional, Grok will use this)</span>
-            </label>
-            <textarea value={context} onChange={e => setContext(e.target.value)} rows={2}
-              placeholder="e.g. We have 30% off, opening on Falgun 15, targeting women aged 18-35..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-100 resize-none"
-            />
-          </div>
-        )}
+        <div>
+          <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">
+            Additional Context <span className="text-gray-300 font-normal normal-case">(optional)</span>
+          </label>
+          <textarea value={context} onChange={e => setContext(e.target.value)} rows={2}
+            placeholder="e.g. We have 30% off, opening on Falgun 15, targeting women aged 18-35..."
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-100 resize-none"
+          />
+        </div>
 
         <button onClick={handleGenerate} disabled={loading || !topic.trim()}
           className="w-full py-3 rounded-xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-90"
@@ -217,11 +215,11 @@ function GenerateTab({ grokAvailable }) {
           {loading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              {grokAvailable ? 'Grok is thinking…' : 'Generating…'}
+              Grok is thinking…
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              ⚡ {grokAvailable ? 'Generate with Grok AI' : 'Generate Post'}
+              ⚡ Generate with Grok AI
             </span>
           )}
         </button>
@@ -233,9 +231,7 @@ function GenerateTab({ grokAvailable }) {
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center rounded-2xl border-2 border-dashed border-gray-200 p-8">
             <div className="text-5xl mb-4">✨</div>
             <p className="font-bold text-gray-600 text-lg mb-2">Your AI-generated post will appear here</p>
-            <p className="text-sm text-gray-400">
-              {grokAvailable ? 'Powered by Grok AI — real, contextual content for Nepal market' : 'Using smart templates — add GROK_API_KEY for AI-powered generation'}
-            </p>
+            <p className="text-sm text-gray-400">Powered by Grok AI — real, contextual content for Nepal market</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -329,7 +325,6 @@ function RewriteTab({ grokAvailable }) {
 
   const handleRewrite = async () => {
     if (!content.trim()) { toast.error('Enter content to rewrite'); return; }
-    if (!grokAvailable) { toast.error('Grok AI required for rewriting. Add GROK_API_KEY to .env'); return; }
     setLoading(true);
     try {
       const res = await aiAPI.rewrite({ content, instruction: mode, platform });
@@ -343,19 +338,6 @@ function RewriteTab({ grokAvailable }) {
 
   return (
     <div className="space-y-5">
-      {!grokAvailable && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <span className="text-xl">⚡</span>
-          <div>
-            <p className="text-sm font-bold text-amber-800">Grok AI Required</p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              Add your <code className="bg-amber-100 px-1 rounded text-xs">GROK_API_KEY</code> to <code className="bg-amber-100 px-1 rounded text-xs">.env</code> to enable AI rewriting.
-              Get a free key at <a href="https://console.x.ai" target="_blank" rel="noreferrer" className="underline font-semibold">console.x.ai</a>
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
@@ -382,7 +364,7 @@ function RewriteTab({ grokAvailable }) {
               ))}
             </div>
           </div>
-          <button onClick={handleRewrite} disabled={loading || !content.trim() || !grokAvailable}
+          <button onClick={handleRewrite} disabled={loading || !content.trim()}
             className="w-full py-3 rounded-xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
             {loading ? (
@@ -484,7 +466,7 @@ function HashtagsTab({ grokAvailable }) {
           <button onClick={handleGenerate} disabled={loading || !content.trim()}
             className="w-full py-3 rounded-xl text-sm font-black text-white disabled:opacity-50 hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}>
-            {loading ? 'Analyzing…' : `🏷️ ${grokAvailable ? 'AI-Powered' : ''} Suggest Hashtags`}
+            {loading ? 'Analyzing…' : '🏷️ AI-Powered Suggest Hashtags'}
           </button>
         </div>
 
@@ -620,7 +602,7 @@ function ReplyTab({ grokAvailable }) {
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Generating replies…
               </span>
-            ) : `💬 Generate ${grokAvailable ? 'AI ' : ''}Reply Suggestions`}
+            ) : '💬 Generate AI Reply Suggestions'}
           </button>
         </div>
 
@@ -660,7 +642,6 @@ function TranslateTab({ grokAvailable }) {
 
   const handleTranslate = async () => {
     if (!content.trim()) { toast.error('Enter content to translate'); return; }
-    if (!grokAvailable) { toast.error('Grok AI required for translation'); return; }
     setLoading(true);
     try {
       const res = await aiAPI.translate({ content, target_language: targetLang });
@@ -674,15 +655,6 @@ function TranslateTab({ grokAvailable }) {
 
   return (
     <div className="space-y-5">
-      {!grokAvailable && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <span className="text-xl">⚡</span>
-          <div>
-            <p className="text-sm font-bold text-amber-800">Grok AI Required for Translation</p>
-            <p className="text-xs text-amber-700 mt-0.5">Get your free API key at <a href="https://console.x.ai" target="_blank" rel="noreferrer" className="underline font-semibold">console.x.ai</a></p>
-          </div>
-        </div>
-      )}
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
@@ -705,7 +677,7 @@ function TranslateTab({ grokAvailable }) {
               ))}
             </div>
           </div>
-          <button onClick={handleTranslate} disabled={loading || !content.trim() || !grokAvailable}
+          <button onClick={handleTranslate} disabled={loading || !content.trim()}
             className="w-full py-3 rounded-xl text-sm font-black text-white disabled:opacity-50 hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)' }}>
             {loading ? (
@@ -803,7 +775,7 @@ function CaptionTab({ grokAvailable }) {
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Generating captions…
               </span>
-            ) : `🖼️ Generate ${grokAvailable ? 'AI ' : ''}Captions`}
+            ) : '🖼️ Generate AI Captions'}
           </button>
         </div>
         <div>
@@ -1075,18 +1047,9 @@ export default function AIGeneratorPage() {
             {statusLoaded && <GrokBadge available={grokAvailable} />}
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {grokAvailable
-              ? 'Powered by Grok AI — generate, rewrite, translate, and automate your content'
-              : 'Smart content tools for Nepal market — add GROK_API_KEY to unlock full AI power'}
+            Powered by Grok AI — generate, rewrite, translate, and automate your content
           </p>
         </div>
-        {!grokAvailable && statusLoaded && (
-          <a href="https://console.x.ai" target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white hover:opacity-90 transition-opacity"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-            ⚡ Get Free Grok API Key
-          </a>
-        )}
       </div>
 
       {/* Tab nav */}
