@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { autoRespondersAPI, accountsAPI } from '../utils/api';
+import { autoRespondersAPI, accountsAPI, aiAPI } from '../utils/api';
 
 const PLATFORM_ICONS = {
   facebook: '📘',
@@ -540,6 +540,38 @@ export default function AutoRespondersPage() {
   const activeCount = responders.filter(r => r.is_active).length;
   const totalTriggers = responders.reduce((sum, r) => sum + (r.match_count || 0), 0);
 
+  const [suggestingAI, setSuggestingAI] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+
+  const handleAISuggest = async () => {
+    setSuggestingAI(true);
+    try {
+      const res = await aiAPI.autoResponderSuggestion({ business_type: 'general', platform: 'facebook' });
+      setAiSuggestions(res.data.suggestions || []);
+      setShowAISuggestions(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'AI suggestions failed');
+    } finally {
+      setSuggestingAI(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion) => {
+    setEditing({
+      name: suggestion.name || '',
+      trigger_type: suggestion.trigger_type || 'keyword',
+      keywords: JSON.stringify(suggestion.keywords || []),
+      response: suggestion.response || '',
+      platforms: JSON.stringify(['facebook', 'instagram']),
+      match_type: 'any',
+      delay_seconds: 0,
+      is_active: 1,
+    });
+    setShowModal(true);
+    setShowAISuggestions(false);
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
@@ -550,7 +582,20 @@ export default function AutoRespondersPage() {
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">Automate replies to comments and DMs 24/7</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* AI Suggest button */}
+          <button
+            onClick={handleAISuggest}
+            disabled={suggestingAI}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors disabled:opacity-50"
+          >
+            {suggestingAI ? (
+              <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span>🤖</span>
+            )}
+            {suggestingAI ? 'AI Thinking…' : 'AI Suggest Rules'}
+          </button>
           <button
             onClick={() => setShowTest(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
@@ -657,6 +702,59 @@ export default function AutoRespondersPage() {
         accounts={accounts}
       />
       <TestModal open={showTest} onClose={() => setShowTest(false)} />
+
+      {/* AI Suggestions Modal */}
+      {showAISuggestions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAISuggestions(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                🤖 Grok AI Suggestions
+              </h2>
+              <p className="text-sm text-gray-400 mt-0.5">AI-generated auto-responder rules for your business</p>
+            </div>
+            <div className="p-6 space-y-3">
+              {aiSuggestions.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-6">No suggestions available. Configure GROK_API_KEY for AI-powered suggestions.</p>
+              ) : (
+                aiSuggestions.map((s, i) => (
+                  <div key={i} className="border border-gray-100 rounded-xl p-4 hover:border-violet-200 transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-gray-900">{s.name}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full border border-violet-100 font-medium capitalize">
+                            {(s.trigger_type || '').replace('_', ' ')}
+                          </span>
+                          {(s.keywords || []).slice(0, 3).map(kw => (
+                            <span key={kw} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{kw}</span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{s.response}</p>
+                        {s.reason && <p className="text-[10px] text-gray-400 mt-1 italic">{s.reason}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleUseSuggestion(s)}
+                        className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg text-white font-bold"
+                        style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
+                      >
+                        Use
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-100">
+              <button onClick={() => setShowAISuggestions(false)}
+                className="w-full py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

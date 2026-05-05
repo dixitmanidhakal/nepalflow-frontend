@@ -77,6 +77,7 @@ export const analyticsAPI = {
 };
 
 // ─── AI Content Generator ──────────────────────────────────────────────────
+// ─── AI Content Generator (Grok-powered) ───────────────────────────────────
 export const aiAPI = {
   generate:  (data)   => api.post('/api/ai/generate', data),
   hashtags:  (data)   => api.post('/api/ai/hashtags', data),
