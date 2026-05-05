@@ -37,8 +37,8 @@ function StatusBadge({ isActive }) {
 function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
   const [deleting, setDeleting] = useState(false);
   const triggerType = TRIGGER_TYPES.find(t => t.value === responder.trigger_type) || TRIGGER_TYPES[0];
-  const platforms = JSON.parse(responder.platforms || '[]');
-  const keywords = JSON.parse(responder.keywords || '[]');
+  const platforms = Array.isArray(responder.platforms) ? responder.platforms : [];
+  const keywords = Array.isArray(responder.keywords) ? responder.keywords : [];
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this auto-responder?')) return;
@@ -147,10 +147,10 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
       setForm({
         name: initial.name || '',
         trigger_type: initial.trigger_type || 'keyword',
-        keywords: JSON.parse(initial.keywords || '[]'),
+        keywords: Array.isArray(initial.keywords) ? initial.keywords : [],
         keywordInput: '',
         response: initial.response || '',
-        platforms: JSON.parse(initial.platforms || '[]'),
+        platforms: Array.isArray(initial.platforms) ? initial.platforms : [],
         match_type: initial.match_type || 'any',
         delay_seconds: initial.delay_seconds || 0,
         account_id: initial.account_id || '',
@@ -192,9 +192,9 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
     await onSave({
       name: form.name,
       trigger_type: form.trigger_type,
-      keywords: JSON.stringify(form.keywords),
+      keywords: form.keywords,
       response: form.response,
-      platforms: JSON.stringify(form.platforms.length > 0 ? form.platforms : ['facebook', 'instagram', 'tiktok']),
+      platforms: form.platforms.length > 0 ? form.platforms : ['facebook', 'instagram', 'tiktok'],
       match_type: form.match_type,
       delay_seconds: form.delay_seconds,
       account_id: form.account_id || null,
@@ -490,8 +490,8 @@ export default function AutoRespondersPage() {
         autoRespondersAPI.list(),
         accountsAPI.list(),
       ]);
-      setResponders(rRes.data.autoResponders || rRes.data);
-      setAccounts(aRes.data.accounts || aRes.data);
+      setResponders(rRes.data.rules || []);
+      setAccounts(aRes.data.accounts || []);
     } catch {
       toast.error('Failed to load auto-responders');
     } finally {
@@ -561,9 +561,9 @@ export default function AutoRespondersPage() {
     setEditing({
       name: suggestion.name || '',
       trigger_type: suggestion.trigger_type || 'keyword',
-      keywords: JSON.stringify(suggestion.keywords || []),
+      keywords: suggestion.keywords || [],
       response: suggestion.response || '',
-      platforms: JSON.stringify(['facebook', 'instagram']),
+      platforms: ['facebook', 'instagram'],
       match_type: 'any',
       delay_seconds: 0,
       is_active: 1,
