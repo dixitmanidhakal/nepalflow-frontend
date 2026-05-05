@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment - NEVER commit real credentials
+.env
+.env.local
+.env.production
+
+# Build output
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Test snapshots (optional - keep if you want)
+# src/**/__snapshots__/

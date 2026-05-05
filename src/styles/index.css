@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Google Fonts - Noto Sans Devanagari for Nepali support */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+
+@layer base {
+  html {
+    font-family: 'Inter', 'Noto Sans Devanagari', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  /* Nepali text uses Devanagari font */
+  .font-nepali,
+  [lang="ne"] {
+    font-family: 'Noto Sans Devanagari', sans-serif;
+  }
+
+  /* Smooth scrolling */
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Reusable button styles */
+  .btn-primary {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-xl font-medium
+           hover:bg-primary-700 transition-colors disabled:opacity-50 text-sm;
+  }
+
+  .btn-secondary {
+    @apply border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium
+           hover:bg-gray-50 transition-colors text-sm;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5;
+  }
+
+  /* Form input */
+  .input {
+    @apply border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+           focus:ring-2 focus:ring-primary-300 focus:border-primary-400
+           outline-none transition-all w-full;
+  }
+
+  /* Status badge */
+  .badge-scheduled { @apply bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-published  { @apply bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-failed     { @apply bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-draft      { @apply bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium; }
+}
+
+@layer utilities {
+  /* FullCalendar overrides */
+  .fc .fc-button {
+    @apply !bg-white !border-gray-200 !text-gray-700 !rounded-lg !shadow-none
+           hover:!bg-gray-50 !font-medium !text-sm;
+  }
+
+  .fc .fc-button-primary:not(:disabled):active,
+  .fc .fc-button-primary:not(:disabled).fc-button-active {
+    @apply !bg-primary-600 !text-white !border-primary-600;
+  }
+
+  .fc .fc-toolbar-title {
+    @apply !text-gray-900 !font-bold !text-lg;
+  }
+
+  .fc .fc-event {
+    @apply !cursor-pointer !rounded-lg;
+  }
+
+  .fc-day-today {
+    @apply !bg-primary-50;
+  }
+
+  /* Hide scrollbar on mobile for horizontal scroll */
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
