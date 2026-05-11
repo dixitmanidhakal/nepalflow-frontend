@@ -1,17 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-import { queueAPI, accountsAPI } from '../utils/api';
+import { queueAPI, accountsAPI, postsAPI } from '../utils/api';
 
-const PLATFORM_ICONS = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
-const STATUS_STYLES = {
+const CSV_TEMPLATE = `account_name,platform,content,scheduled_at,hashtags
+My Facebook Page,facebook,"Check out our amazing new product! Perfect for everyone.",2026-06-01T09:00:00,#Nepal #NewProduct #MustHave
+My Instagram,instagram,"Beautiful day to share something awesome! 😊",2026-06-02T10:00:00,#NepalBusiness #Instagram
+My Facebook Page,facebook,"Flash sale today only — 20% off everything! 🔥",2026-06-03T18:00:00,#Sale #Nepal #Discount
+`;
+
+const PLATFORM_ICONS: Record<string, string> = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
+
+interface StatusStyle {
+  bg: string;
+  text: string;
+  border: string;
+  dot: string;
+  label: string;
+}
+
+const STATUS_STYLES: Record<string, StatusStyle> = {
   queued:     { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', dot: 'bg-yellow-400', label: 'Queued' },
   published:  { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', label: 'Published' },
   failed:     { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-500', label: 'Failed' },
   scheduled:  { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500', label: 'Scheduled' },
 };
 
-function QueueItem({ item, accounts, onDelete, onPublish }) {
+interface QueueItemData {
+  id: string | number;
+  platform: string;
+  content: string;
+  status: string;
+  scheduled_at?: string;
+  account_id?: string | number;
+}
+
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+}
+
+// ─── QueueItem ─────────────────────────────────────────────────────────────────
+interface QueueItemProps {
+  item: QueueItemData;
+  accounts: Account[];
+  onDelete: (id: string | number) => void;
+  onPublish: (id: string | number) => void;
+}
+
+function QueueItem({ item, accounts, onDelete, onPublish }: QueueItemProps) {
   const account = accounts.find(a => a.id === item.account_id);
   const st = STATUS_STYLES[item.status] || STATUS_STYLES.queued;
 
@@ -64,7 +102,15 @@ function QueueItem({ item, accounts, onDelete, onPublish }) {
   );
 }
 
-function BulkAddModal({ open, onClose, onSave, accounts }) {
+// ─── BulkAddModal ──────────────────────────────────────────────────────────────
+interface BulkAddModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  accounts: Account[];
+}
+
+function BulkAddModal({ open, onClose, onSave, accounts }: BulkAddModalProps) {
   const [platform, setPlatform] = useState('facebook');
   const [accountId, setAccountId] = useState('');
   const [bulkText, setBulkText] = useState('');
@@ -72,7 +118,7 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
   const [startTime, setStartTime] = useState('09:00');
   const [intervalHours, setIntervalHours] = useState(24);
   const [saving, setSaving] = useState(false);
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const filteredAccounts = accounts.filter(a => a.platform === platform);
   const posts = bulkText
@@ -101,7 +147,8 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
       onClose();
       onSave();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to add to queue');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to add to queue');
     } finally {
       setSaving(false);
     }
@@ -117,9 +164,7 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
         </div>
 
         <div className="p-6 flex gap-5 overflow-hidden flex-1">
-          {/* Left: config */}
           <div className="w-56 flex-shrink-0 space-y-4">
-            {/* Platform */}
             <div>
               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Platform</label>
               <div className="space-y-1.5">
@@ -138,7 +183,6 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
               </div>
             </div>
 
-            {/* Account */}
             <div>
               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Account</label>
               {filteredAccounts.length === 0 ? (
@@ -151,13 +195,12 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
                 >
                   <option value="">Select account</option>
                   {filteredAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.account_name}</option>
+                    <option key={a.id} value={String(a.id)}>{a.account_name}</option>
                   ))}
                 </select>
               )}
             </div>
 
-            {/* Start date/time */}
             <div>
               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Start Date</label>
               <input
@@ -178,7 +221,6 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
               />
             </div>
 
-            {/* Interval */}
             <div>
               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
                 Interval: <span className="text-rose-500">{intervalHours}h</span>
@@ -195,7 +237,6 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
               </div>
             </div>
 
-            {/* Preview count */}
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-2xl font-black text-gray-900">{posts.length}</p>
               <p className="text-xs text-gray-400 font-medium">post{posts.length !== 1 ? 's' : ''} detected</p>
@@ -207,7 +248,6 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
             </div>
           </div>
 
-          {/* Right: textarea */}
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">Posts Content</label>
@@ -255,9 +295,10 @@ function BulkAddModal({ open, onClose, onSave, accounts }) {
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function BulkQueuePage() {
-  const [items, setItems] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [items, setItems] = useState<QueueItemData[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [showBulkAdd, setShowBulkAdd] = useState(false);
@@ -267,7 +308,7 @@ export default function BulkQueuePage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params: Record<string, string> = {};
       if (filterStatus) params.status = filterStatus;
       if (filterPlatform) params.platform = filterPlatform;
       const [qRes, aRes] = await Promise.all([
@@ -296,13 +337,14 @@ export default function BulkQueuePage() {
       toast.success(`${res.data.published} posts scheduled for publishing!`);
       fetchAll();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to publish');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to publish');
     } finally {
       setPublishing(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string | number) => {
     try {
       await queueAPI.delete(id);
       setItems(prev => prev.filter(i => i.id !== id));
@@ -311,7 +353,7 @@ export default function BulkQueuePage() {
     }
   };
 
-  const handlePublishOne = async (id) => {
+  const handlePublishOne = async (id: string | number) => {
     try {
       await queueAPI.update(id, { status: 'scheduled' });
       setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'scheduled' } : i));
@@ -321,7 +363,7 @@ export default function BulkQueuePage() {
     }
   };
 
-  const handleClear = async (status) => {
+  const handleClear = async (status: string) => {
     if (!window.confirm(`Clear all ${status || 'completed'} posts from the queue?`)) return;
     try {
       await queueAPI.clear(status);
@@ -336,6 +378,36 @@ export default function BulkQueuePage() {
   const publishedCount = items.filter(i => i.status === 'published' || i.status === 'scheduled').length;
   const failedCount = items.filter(i => i.status === 'failed').length;
 
+  const downloadCSVTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'nepalflow_bulk_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV template downloaded!');
+  };
+
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await postsAPI.bulkImport(formData);
+      toast.success(`Imported ${res.data.imported} post(s)!`);
+      if (res.data.errors?.length > 0) {
+        toast.error(`${res.data.errors.length} row(s) failed — check CSV format`);
+      }
+      fetchAll();
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'CSV import failed');
+    }
+    e.target.value = '';
+  };
+
   const STATUS_FILTERS = [
     { value: '', label: 'All' },
     { value: 'queued', label: '⏳ Queued' },
@@ -346,7 +418,6 @@ export default function BulkQueuePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Bulk Post Queue</h1>
@@ -378,6 +449,23 @@ export default function BulkQueuePage() {
             </button>
           )}
           <button
+            onClick={downloadCSVTemplate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+            title="Download CSV template for bulk import"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            CSV Template
+          </button>
+          <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-violet-600 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer" title="Import posts from CSV file">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import CSV
+            <input type="file" accept=".csv" className="sr-only" onChange={handleCSVImport} />
+          </label>
+          <button
             onClick={() => setShowBulkAdd(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
@@ -390,7 +478,6 @@ export default function BulkQueuePage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
           { label: 'Total', value: items.length, gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)', icon: '📋' },
@@ -410,7 +497,6 @@ export default function BulkQueuePage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {STATUS_FILTERS.map(f => (
           <button
@@ -443,7 +529,6 @@ export default function BulkQueuePage() {
         ))}
       </div>
 
-      {/* Queue items */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />
@@ -477,7 +562,6 @@ export default function BulkQueuePage() {
         </div>
       )}
 
-      {/* Empty state when filtered */}
       {!loading && items.length === 0 && (filterStatus || filterPlatform) && (
         <div className="text-center py-10">
           <p className="text-gray-400 text-sm">No posts match this filter</p>

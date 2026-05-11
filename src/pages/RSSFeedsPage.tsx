@@ -6,14 +6,51 @@ import { rssAPI, accountsAPI } from '../utils/api';
 
 dayjs.extend(relativeTime);
 
-const PLATFORM_ICONS = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
+const PLATFORM_ICONS: Record<string, string> = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
 const CATEGORY_OPTIONS = ['news', 'tech', 'business', 'entertainment', 'sports', 'health', 'other'];
 
-function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
+interface Feed {
+  id: string | number;
+  name: string;
+  feed_url?: string;
+  url?: string;
+  category?: string;
+  is_active: number | boolean;
+  last_fetched_at?: string;
+  items_fetched?: number;
+  post_template?: string;
+  platforms?: string;
+  auto_post?: number;
+  schedule_interval?: number;
+}
+
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+}
+
+interface RSSItem {
+  title?: string;
+  description?: string;
+  link?: string;
+}
+
+// ─── FeedCard ──────────────────────────────────────────────────────────────────
+interface FeedCardProps {
+  feed: Feed;
+  onToggle: (id: string | number) => void;
+  onFetch: (id: string | number) => Promise<RSSItem[]>;
+  onDelete: (id: string | number) => void;
+  onEdit: (feed: Feed) => void;
+  accounts: Account[];
+}
+
+function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }: FeedCardProps) {
   const [fetching, setFetching] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [items, setItems] = useState([]);
-  const [postingItem, setPostingItem] = useState(null);
+  const [items, setItems] = useState<RSSItem[]>([]);
+  const [postingItem, setPostingItem] = useState<string | null>(null);
 
   const handleFetch = async () => {
     setFetching(true);
@@ -26,20 +63,21 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
     }
   };
 
-  const handlePostItem = async (item, accountId) => {
-    setPostingItem(item.link);
+  const handlePostItem = async (item: RSSItem, accountId: string) => {
+    setPostingItem(item.link || null);
     try {
       await rssAPI.postItem(feed.id, { item, account_id: accountId });
       toast.success('Scheduled as a post!');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to schedule');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to schedule');
     } finally {
       setPostingItem(null);
     }
   };
 
   const feedAccounts = accounts.filter(a => {
-    const platforms = JSON.parse(feed.platforms || '[]');
+    const platforms: string[] = JSON.parse(feed.platforms || '[]');
     return platforms.length === 0 || platforms.includes(a.platform);
   });
 
@@ -66,7 +104,7 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{feed.url}</p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{feed.feed_url || feed.url}</p>
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
               {feed.last_fetched_at && (
                 <span>Last synced {dayjs(feed.last_fetched_at).fromNow()}</span>
@@ -75,7 +113,6 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Toggle */}
             <button
               onClick={() => onToggle(feed.id)}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -100,7 +137,6 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
           </div>
         </div>
 
-        {/* Post template preview */}
         {feed.post_template && (
           <div className="mt-3 p-2.5 bg-gray-50 rounded-xl">
             <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Post Template</p>
@@ -108,7 +144,6 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2 mt-3">
           <button
             onClick={handleFetch}
@@ -135,7 +170,6 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
         </div>
       </div>
 
-      {/* Items List */}
       {expanded && items.length > 0 && (
         <div className="border-t border-gray-50">
           <div className="px-5 py-3 bg-gray-50/50">
@@ -157,7 +191,6 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
                       </a>
                     )}
                   </div>
-                  {/* Post to account button */}
                   {feedAccounts.length > 0 ? (
                     <div className="flex-shrink-0">
                       <select
@@ -167,7 +200,7 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
                       >
                         <option value="" disabled>Post to…</option>
                         {feedAccounts.map(a => (
-                          <option key={a.id} value={a.id}>{PLATFORM_ICONS[a.platform]} {a.account_name}</option>
+                          <option key={a.id} value={String(a.id)}>{PLATFORM_ICONS[a.platform]} {a.account_name}</option>
                         ))}
                       </select>
                     </div>
@@ -191,8 +224,26 @@ function FeedCard({ feed, onToggle, onFetch, onDelete, onEdit, accounts }) {
   );
 }
 
-function FeedModal({ open, onClose, onSave, initial }) {
-  const [form, setForm] = useState({
+// ─── FeedModal ─────────────────────────────────────────────────────────────────
+interface FeedFormState {
+  name: string;
+  url: string;
+  category: string;
+  post_template: string;
+  platforms: string[];
+  auto_post: number;
+  schedule_interval: number;
+}
+
+interface FeedModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: FeedFormState & { platforms: string }, id?: string | number) => Promise<void>;
+  initial: Partial<Feed> | null;
+}
+
+function FeedModal({ open, onClose, onSave, initial }: FeedModalProps) {
+  const [form, setForm] = useState<FeedFormState>({
     name: '', url: '', category: 'news', post_template: '📰 {{title}}\n\n{{description}}\n\nRead more: {{link}}',
     platforms: [], auto_post: 0, schedule_interval: 60,
   });
@@ -233,7 +284,7 @@ function FeedModal({ open, onClose, onSave, initial }) {
     setSaving(false);
   };
 
-  const togglePlatform = (p) => {
+  const togglePlatform = (p: string) => {
     setForm(f => ({
       ...f,
       platforms: f.platforms.includes(p) ? f.platforms.filter(x => x !== p) : [...f.platforms, p],
@@ -252,7 +303,6 @@ function FeedModal({ open, onClose, onSave, initial }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Name */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Feed Name</label>
             <input
@@ -264,7 +314,6 @@ function FeedModal({ open, onClose, onSave, initial }) {
             />
           </div>
 
-          {/* URL */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">RSS Feed URL</label>
             <input
@@ -276,7 +325,6 @@ function FeedModal({ open, onClose, onSave, initial }) {
             />
           </div>
 
-          {/* Category */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category</label>
             <select
@@ -290,7 +338,6 @@ function FeedModal({ open, onClose, onSave, initial }) {
             </select>
           </div>
 
-          {/* Platforms */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Target Platforms</label>
             <div className="flex gap-2">
@@ -311,7 +358,6 @@ function FeedModal({ open, onClose, onSave, initial }) {
             <p className="text-xs text-gray-400 mt-1">No selection = all platforms</p>
           </div>
 
-          {/* Post Template */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Post Template</label>
             <textarea
@@ -353,12 +399,13 @@ function FeedModal({ open, onClose, onSave, initial }) {
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function RSSFeedsPage() {
-  const [feeds, setFeeds] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [feeds, setFeeds] = useState<Feed[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<Partial<Feed> | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -375,24 +422,26 @@ export default function RSSFeedsPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleSave = async (data, id) => {
+  const handleSave = async (data: FeedFormState & { platforms: string }, id?: string | number) => {
     try {
+      const payload = { ...data, feed_url: data.url };
       if (id) {
-        await rssAPI.update(id, data);
+        await rssAPI.update(id, payload);
         toast.success('Feed updated!');
       } else {
-        await rssAPI.create(data);
+        await rssAPI.create(payload);
         toast.success('Feed added!');
       }
       setShowModal(false);
       setEditing(null);
       fetchAll();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to save feed');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to save feed');
     }
   };
 
-  const handleToggle = async (id) => {
+  const handleToggle = async (id: string | number) => {
     try {
       const res = await rssAPI.toggle(id);
       setFeeds(prev => prev.map(f => f.id === id ? { ...f, is_active: res.data.is_active } : f));
@@ -401,17 +450,18 @@ export default function RSSFeedsPage() {
     }
   };
 
-  const handleFetch = async (id) => {
+  const handleFetch = async (id: string | number): Promise<RSSItem[]> => {
     try {
       const res = await rssAPI.fetch(id);
       return res.data.items || [];
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to fetch items');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to fetch items');
       return [];
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string | number) => {
     if (!window.confirm('Delete this RSS feed?')) return;
     try {
       await rssAPI.delete(id);
@@ -426,7 +476,6 @@ export default function RSSFeedsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">RSS Content Hub</h1>
@@ -444,7 +493,6 @@ export default function RSSFeedsPage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Total Feeds', value: feeds.length, icon: '📡', gradient: 'linear-gradient(135deg, #f97316, #fb923c)' },
@@ -463,7 +511,6 @@ export default function RSSFeedsPage() {
         ))}
       </div>
 
-      {/* Nepal RSS suggestions */}
       {feeds.length === 0 && !loading && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -472,9 +519,9 @@ export default function RSSFeedsPage() {
           <div className="grid gap-2">
             {[
               { name: 'The Kathmandu Post', url: 'https://kathmandupost.com/rss' },
-              { name: 'My Republica', url: 'https://myrepublica.nagariknetwork.com/feed/' },
               { name: 'OnlineKhabar', url: 'https://www.onlinekhabar.com/feed' },
-              { name: 'Setopati', url: 'https://www.setopati.com/feed' },
+              { name: 'Ekantipur', url: 'https://ekantipur.com/rss' },
+              { name: 'Ratopati', url: 'https://ratopati.com/rss' },
             ].map(suggestion => (
               <div key={suggestion.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                 <div>
@@ -497,7 +544,6 @@ export default function RSSFeedsPage() {
         </div>
       )}
 
-      {/* How it works */}
       {feeds.length === 0 && !loading && (
         <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(135deg, #1c1917, #292524)' }}>
           <p className="text-white font-black text-lg mb-4">How RSS Hub Works</p>
@@ -516,7 +562,6 @@ export default function RSSFeedsPage() {
         </div>
       )}
 
-      {/* Feed List */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />

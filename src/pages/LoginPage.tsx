@@ -8,7 +8,9 @@ import { useAuth } from '../hooks/useAuth';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 const SHOW_DEMO = process.env.REACT_APP_SHOW_DEMO_LOGIN !== 'false';
 
-function Spinner({ size = 18 }) {
+const DEFAULT_CONFIG: Record<string, boolean> = { facebook: true, instagram: true, tiktok: true, google: true, demo: true };
+
+function Spinner({ size = 18 }: { size?: number }) {
   return (
     <svg className="animate-spin" width={size} height={size} viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -17,7 +19,16 @@ function Spinner({ size = 18 }) {
   );
 }
 
-function SocialButton({ icon, label, style, onClick, loading, disabled }) {
+interface SocialButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  style: React.CSSProperties;
+  onClick: () => void;
+  loading: boolean;
+  disabled: boolean;
+}
+
+function SocialButton({ icon, label, style, onClick, loading, disabled }: SocialButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -72,17 +83,38 @@ export default function LoginPage() {
   const { t, i18n } = useTranslation();
   const { login, user } = useAuth();
   const navigate = useNavigate();
-  const [loadingProvider, setLoadingProvider] = useState(null);
+  const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [demoEmail, setDemoEmail] = useState('demo@nepalflow.com');
   const [demoName, setDemoName] = useState('Demo User');
   const [showDemo, setShowDemo] = useState(false);
+  const [authConfig, setAuthConfig] = useState(DEFAULT_CONFIG);
 
   useEffect(() => {
     if (user) navigate('/', { replace: true });
   }, [user, navigate]);
 
-  // Open OAuth popup and listen for response
-  const openOAuthPopup = (provider) => {
+  useEffect(() => {
+    authAPI.getConfig()
+      .then((res: { data: Record<string, boolean> }) => setAuthConfig(res.data))
+      .catch(() => {});
+  }, []);
+
+  const openOAuthPopup = (provider: string) => {
+    if (!authConfig[provider]) {
+      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+      const credMap: Record<string, string> = {
+        facebook:  'FACEBOOK_APP_ID + FACEBOOK_APP_SECRET',
+        instagram: 'FACEBOOK_APP_ID + FACEBOOK_APP_SECRET',
+        tiktok:    'TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET',
+        google:    'GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET',
+      };
+      toast.error(
+        `${providerName} not configured.\nAdd ${credMap[provider] || 'credentials'} to backend .env`,
+        { duration: 6000, style: { maxWidth: 400 } }
+      );
+      return;
+    }
+
     setLoadingProvider(provider);
     const width = 520, height = 640;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -93,17 +125,23 @@ export default function LoginPage() {
       `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
     );
 
-    const handleMessage = async (event) => {
-      if (event.data?.type !== 'OAUTH_SUCCESS') return;
+    const handleMessage = async (event: MessageEvent) => {
+      if (!event.data?.type || !['OAUTH_SUCCESS', 'OAUTH_ERROR'].includes(event.data.type)) return;
       window.removeEventListener('message', handleMessage);
+
+      if (event.data.type === 'OAUTH_ERROR') {
+        toast.error(event.data.message || `${provider} login failed`, { duration: 6000, style: { maxWidth: 400 } });
+        setLoadingProvider(null);
+        return;
+      }
+
       try {
-        // Fetch user data with the token
         const res = await authAPI.getMe(event.data.token);
         login(event.data.token, res.data.user);
         toast.success(`Welcome! Connected with ${provider} 🎉`);
         navigate('/');
       } catch {
-        login(event.data.token, null);
+        login(event.data.token, undefined);
         navigate('/');
       }
       setLoadingProvider(null);
@@ -119,7 +157,7 @@ export default function LoginPage() {
     }, 500);
   };
 
-  const handleDemoLogin = async (e) => {
+  const handleDemoLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoadingProvider('demo');
     try {
@@ -127,8 +165,9 @@ export default function LoginPage() {
       login(res.data.token, res.data.user);
       toast.success('Welcome to NepalFlow! 🎉');
       navigate('/');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Login failed');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || 'Login failed');
     } finally {
       setLoadingProvider(null);
     }
@@ -141,14 +180,12 @@ export default function LoginPage() {
       className="min-h-screen flex items-center justify-center relative overflow-hidden px-4"
       style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 45%, #24243e 100%)' }}
     >
-      {/* Animated gradient orbs */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #f43f5e, transparent)' }} />
         <div className="absolute top-1/3 -right-32 w-80 h-80 rounded-full opacity-15 blur-3xl" style={{ background: 'radial-gradient(circle, #8b5cf6, transparent)' }} />
         <div className="absolute -bottom-32 left-1/3 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #06b6d4, transparent)' }} />
       </div>
 
-      {/* Grid overlay */}
       <div
         className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
@@ -157,7 +194,6 @@ export default function LoginPage() {
         }}
       />
 
-      {/* Language switcher */}
       <div className="absolute top-5 right-5 z-20 flex gap-2">
         {[{ code: 'en', label: 'EN', flag: '🇬🇧' }, { code: 'ne', label: 'NE', flag: '🇳🇵' }].map(({ code, label, flag }) => (
           <button
@@ -174,20 +210,16 @@ export default function LoginPage() {
         ))}
       </div>
 
-      {/* Main card */}
       <div className="relative z-10 w-full max-w-md">
-        {/* Glow ring */}
         <div
           className="absolute -inset-px rounded-3xl opacity-40 blur-sm pointer-events-none"
           style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6, #06b6d4)' }}
         />
 
-        {/* Card */}
         <div
           className="relative rounded-3xl p-8 border border-white/10 shadow-2xl"
           style={{ background: 'rgba(15, 12, 41, 0.7)', backdropFilter: 'blur(24px)' }}
         >
-          {/* Brand */}
           <div className="text-center mb-8">
             <div
               className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-xl"
@@ -205,43 +237,24 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Social OAuth buttons */}
           <div className="space-y-3 mb-5">
             <SocialButton
-              icon={<FacebookIcon />}
-              label={loadingProvider === 'facebook' ? 'Connecting...' : 'Continue with Facebook'}
-              style={{ background: 'linear-gradient(135deg, #1877f2 0%, #0d5cbf 100%)' }}
-              onClick={() => openOAuthPopup('facebook')}
-              loading={loadingProvider === 'facebook'}
-              disabled={isLoading}
-            />
-            <SocialButton
-              icon={<InstagramIcon />}
-              label={loadingProvider === 'instagram' ? 'Connecting...' : 'Continue with Instagram'}
-              style={{ background: 'linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)' }}
-              onClick={() => openOAuthPopup('instagram')}
-              loading={loadingProvider === 'instagram'}
-              disabled={isLoading}
-            />
-            <SocialButton
-              icon={<TikTokIcon />}
-              label={loadingProvider === 'tiktok' ? 'Connecting...' : 'Continue with TikTok'}
-              style={{ background: 'linear-gradient(135deg, #161616 0%, #2dd4bf 50%, #ee1d52 100%)' }}
-              onClick={() => openOAuthPopup('tiktok')}
-              loading={loadingProvider === 'tiktok'}
-              disabled={isLoading}
-            />
-            <SocialButton
               icon={<GoogleIcon />}
-              label={loadingProvider === 'google' ? 'Connecting...' : 'Continue with Google'}
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+              label={loadingProvider === 'google' ? 'Connecting...' : authConfig.google ? 'Continue with Google' : 'Continue with Google (setup required)'}
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', opacity: authConfig.google ? 1 : 0.55 }}
               onClick={() => openOAuthPopup('google')}
               loading={loadingProvider === 'google'}
               disabled={isLoading}
             />
           </div>
 
-          {/* Demo login */}
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-4" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="text-base mt-0.5">📘</span>
+            <p className="text-white/40 text-xs leading-relaxed">
+              Connect your <span className="text-white/60 font-semibold">Facebook, Instagram & TikTok</span> pages after sign-in from <span className="text-white/60 font-semibold">Settings → Accounts</span>
+            </p>
+          </div>
+
           {SHOW_DEMO && (
             <>
               <div className="flex items-center gap-3 mb-4">
@@ -288,7 +301,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* Trust */}
           <div className="mt-6 flex items-center justify-center gap-3 text-white/20 text-xs">
             <span className="flex items-center gap-1">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -303,7 +315,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Feature pills */}
         <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">
           {[
             { icon: '📅', label: 'Schedule Posts' },

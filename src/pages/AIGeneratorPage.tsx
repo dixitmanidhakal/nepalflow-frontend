@@ -1,16 +1,50 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { aiAPI } from '../utils/api';
 
-const PLATFORMS = [
+// ─── Constants ─────────────────────────────────────────────────────────────────
+
+interface PlatformOption {
+  value: string;
+  label: string;
+  icon: string;
+  limit?: number;
+}
+
+interface ToneOption {
+  value: string;
+  label: string;
+  emoji: string;
+  desc: string;
+}
+
+interface NicheOption {
+  value: string;
+  label: string;
+  icon: string;
+}
+
+interface RewriteMode {
+  value: string;
+  label: string;
+  icon: string;
+  desc: string;
+}
+
+interface TabOption {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+const PLATFORMS: PlatformOption[] = [
   { value: 'facebook', label: 'Facebook', icon: '📘', limit: 63206 },
   { value: 'instagram', label: 'Instagram', icon: '📸', limit: 2200 },
   { value: 'tiktok', label: 'TikTok', icon: '🎵', limit: 2200 },
 ];
 
-const TONES = [
+const TONES: ToneOption[] = [
   { value: 'promotional', label: 'Promotional', emoji: '📣', desc: 'Drive sales & offers' },
   { value: 'educational', label: 'Educational', emoji: '💡', desc: 'Teach & inform' },
   { value: 'engaging', label: 'Engaging', emoji: '🤝', desc: 'Spark conversations' },
@@ -20,7 +54,7 @@ const TONES = [
   { value: 'story', label: 'Brand Story', emoji: '📖', desc: 'Connect emotionally' },
 ];
 
-const NICHES = [
+const NICHES: NicheOption[] = [
   { value: 'general', label: 'General', icon: '🌐' },
   { value: 'business', label: 'Business', icon: '💼' },
   { value: 'food', label: 'Food & Restaurant', icon: '🍜' },
@@ -31,7 +65,7 @@ const NICHES = [
   { value: 'real_estate', label: 'Real Estate', icon: '🏠' },
 ];
 
-const REWRITE_MODES = [
+const REWRITE_MODES: RewriteMode[] = [
   { value: 'improve', label: 'Improve', icon: '✨', desc: 'Fix grammar, enhance quality' },
   { value: 'make_viral', label: 'Make Viral', icon: '🔥', desc: 'Optimize for maximum reach' },
   { value: 'shorten', label: 'Shorten', icon: '✂️', desc: 'Make concise & punchy' },
@@ -41,7 +75,7 @@ const REWRITE_MODES = [
   { value: 'casual', label: 'Casual', icon: '😊', desc: 'Friendly conversational' },
 ];
 
-const TABS = [
+const TABS: TabOption[] = [
   { key: 'generate', label: 'Generate', icon: '✨' },
   { key: 'rewrite', label: 'Rewrite & Improve', icon: '🔄' },
   { key: 'hashtags', label: 'Hashtags', icon: '🏷️' },
@@ -52,7 +86,94 @@ const TABS = [
   { key: 'insights', label: 'AI Insights', icon: '📊' },
 ];
 
-function GrokBadge({ available }) {
+// ─── Shared Interfaces ─────────────────────────────────────────────────────────
+
+interface TabProps {
+  grokAvailable: boolean;
+}
+
+interface GenerateResult {
+  content: string;
+  hashtags?: string[];
+  alternatives?: string[];
+  ai_powered?: boolean;
+  char_count?: number;
+  char_limit?: number;
+  within_limit?: boolean;
+}
+
+interface RewriteResult {
+  rewritten: string;
+  char_count?: number;
+}
+
+interface HashtagBestItem {
+  hashtag: string;
+  avg_likes: number;
+}
+
+interface HashtagResult {
+  suggested?: string[];
+  your_best?: HashtagBestItem[];
+  trending_nepal?: string[];
+  ai_powered?: boolean;
+}
+
+interface BestTime {
+  label?: string;
+  day?: string;
+  hour?: number;
+  score?: number;
+  avg_engagement?: number;
+}
+
+interface HeatmapCell {
+  day: number;
+  hour: number;
+  value?: number;
+}
+
+interface BestTimeData {
+  best_times?: BestTime[];
+  tips?: string[];
+  heatmap?: HeatmapCell[];
+  days?: string[];
+  has_real_data?: boolean;
+}
+
+interface InsightItem {
+  type: string;
+  icon?: string;
+  title: string;
+  message: string;
+}
+
+interface InsightSummary {
+  total_posts?: number;
+  published?: number;
+  failed?: number;
+  avg_engagement?: number;
+  unread_messages?: number;
+  best_hashtag?: string;
+}
+
+interface InsightsData {
+  summary?: InsightSummary;
+  insights?: InsightItem[];
+}
+
+interface TranslateResult {
+  translated: string;
+  target_language?: string;
+}
+
+// ─── Helper Components ─────────────────────────────────────────────────────────
+
+interface GrokBadgeProps {
+  available: boolean;
+}
+
+function GrokBadge({ available }: GrokBadgeProps) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-bold border ${
       available
@@ -60,12 +181,16 @@ function GrokBadge({ available }) {
         : 'bg-gray-100 text-gray-500 border-gray-200'
     }`}>
       <span className="text-[10px]">⚡</span>
-      {available ? 'Grok AI' : 'Template Mode'}
+      {available ? 'AI' : 'Template Mode'}
     </span>
   );
 }
 
-function CopyBtn({ text }) {
+interface CopyBtnProps {
+  text: string;
+}
+
+function CopyBtn({ text }: CopyBtnProps) {
   const [copied, setCopied] = useState(false);
   const handle = () => {
     navigator.clipboard.writeText(text);
@@ -80,7 +205,7 @@ function CopyBtn({ text }) {
 }
 
 // ─── Generate Tab ─────────────────────────────────────────────────────────────
-function GenerateTab({ grokAvailable }) {
+function GenerateTab({ grokAvailable }: TabProps) {
   const navigate = useNavigate();
   const [platform, setPlatform] = useState('facebook');
   const [tone, setTone] = useState('promotional');
@@ -90,7 +215,7 @@ function GenerateTab({ grokAvailable }) {
   const [context, setContext] = useState('');
   const [language, setLanguage] = useState('en');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<GenerateResult | null>(null);
   const [editedContent, setEditedContent] = useState('');
 
   const handleGenerate = async () => {
@@ -101,7 +226,8 @@ function GenerateTab({ grokAvailable }) {
       setResult(res.data);
       setEditedContent(res.data.content);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Generation failed');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Generation failed');
     } finally {
       setLoading(false);
     }
@@ -215,11 +341,11 @@ function GenerateTab({ grokAvailable }) {
           {loading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Grok is thinking…
+              AI is thinking…
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              ⚡ Generate with Grok AI
+              ⚡ Generate with AI
             </span>
           )}
         </button>
@@ -231,7 +357,7 @@ function GenerateTab({ grokAvailable }) {
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center rounded-2xl border-2 border-dashed border-gray-200 p-8">
             <div className="text-5xl mb-4">✨</div>
             <p className="font-bold text-gray-600 text-lg mb-2">Your AI-generated post will appear here</p>
-            <p className="text-sm text-gray-400">Powered by Grok AI — real, contextual content for Nepal market</p>
+            <p className="text-sm text-gray-400">Powered by AI — real, contextual content for Nepal market</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -239,7 +365,7 @@ function GenerateTab({ grokAvailable }) {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Generated Post</span>
-                  <GrokBadge available={result.ai_powered} />
+                  <GrokBadge available={!!result.ai_powered} />
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs font-semibold ${result.within_limit ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -257,7 +383,7 @@ function GenerateTab({ grokAvailable }) {
             </div>
 
             {/* Hashtags */}
-            {result.hashtags?.length > 0 && (
+            {result.hashtags && result.hashtags.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Suggested Hashtags</span>
@@ -275,7 +401,7 @@ function GenerateTab({ grokAvailable }) {
             )}
 
             {/* Alternatives */}
-            {result.alternatives?.length > 0 && (
+            {result.alternatives && result.alternatives.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alternative Versions</p>
                 {result.alternatives.map((alt, i) => (
@@ -316,12 +442,12 @@ function GenerateTab({ grokAvailable }) {
 }
 
 // ─── Rewrite Tab ──────────────────────────────────────────────────────────────
-function RewriteTab({ grokAvailable }) {
+function RewriteTab({ grokAvailable }: TabProps) {
   const [content, setContent] = useState('');
   const [mode, setMode] = useState('improve');
   const [platform, setPlatform] = useState('facebook');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<RewriteResult | null>(null);
 
   const handleRewrite = async () => {
     if (!content.trim()) { toast.error('Enter content to rewrite'); return; }
@@ -330,7 +456,8 @@ function RewriteTab({ grokAvailable }) {
       const res = await aiAPI.rewrite({ content, instruction: mode, platform });
       setResult(res.data);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Rewrite failed');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Rewrite failed');
     } finally {
       setLoading(false);
     }
@@ -370,9 +497,9 @@ function RewriteTab({ grokAvailable }) {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Grok is rewriting…
+                AI is rewriting…
               </span>
-            ) : '⚡ Rewrite with Grok'}
+            ) : '⚡ Rewrite with AI'}
           </button>
         </div>
 
@@ -404,7 +531,7 @@ function RewriteTab({ grokAvailable }) {
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center rounded-2xl border-2 border-dashed border-gray-200 p-8">
               <div className="text-5xl mb-4">🔄</div>
               <p className="font-bold text-gray-600 mb-2">Rewritten content will appear here</p>
-              <p className="text-sm text-gray-400">Grok AI transforms your content while keeping the message</p>
+              <p className="text-sm text-gray-400">AI transforms your content while keeping the message</p>
             </div>
           )}
         </div>
@@ -414,12 +541,12 @@ function RewriteTab({ grokAvailable }) {
 }
 
 // ─── Hashtags Tab ─────────────────────────────────────────────────────────────
-function HashtagsTab({ grokAvailable }) {
+function HashtagsTab({ grokAvailable }: TabProps) {
   const [content, setContent] = useState('');
   const [platform, setPlatform] = useState('instagram');
   const [niche, setNiche] = useState('general');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<HashtagResult | null>(null);
 
   const handleGenerate = async () => {
     if (!content.trim()) { toast.error('Enter some content first'); return; }
@@ -477,7 +604,7 @@ function HashtagsTab({ grokAvailable }) {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Suggested ({result.suggested?.length})</span>
-                    <GrokBadge available={result.ai_powered} />
+                    <GrokBadge available={!!result.ai_powered} />
                   </div>
                   <button onClick={copyAll} className="text-xs text-rose-500 font-bold hover:text-rose-600">Copy All</button>
                 </div>
@@ -490,7 +617,7 @@ function HashtagsTab({ grokAvailable }) {
                   ))}
                 </div>
               </div>
-              {result.your_best?.length > 0 && (
+              {result.your_best && result.your_best.length > 0 && (
                 <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4">
                   <p className="text-xs font-bold text-emerald-700 mb-2">⭐ Your Best Performers</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -528,7 +655,7 @@ function HashtagsTab({ grokAvailable }) {
 }
 
 // ─── Reply Suggestions Tab ────────────────────────────────────────────────────
-function ReplyTab({ grokAvailable }) {
+function ReplyTab({ grokAvailable }: TabProps) {
   const [comment, setComment] = useState('');
   const [commenterName, setCommenterName] = useState('');
   const [postContent, setPostContent] = useState('');
@@ -536,7 +663,7 @@ function ReplyTab({ grokAvailable }) {
   const [tone, setTone] = useState('friendly');
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const handleGenerate = async () => {
     if (!comment.trim()) { toast.error('Enter a comment to reply to'); return; }
@@ -545,7 +672,8 @@ function ReplyTab({ grokAvailable }) {
       const res = await aiAPI.replySuggestion({ comment, commenter_name: commenterName, post_content: postContent, platform, tone, business_name: businessName });
       setSuggestions(res.data.suggestions || []);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to generate suggestions');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to generate suggestions');
     } finally {
       setLoading(false);
     }
@@ -634,11 +762,11 @@ function ReplyTab({ grokAvailable }) {
 }
 
 // ─── Translate Tab ────────────────────────────────────────────────────────────
-function TranslateTab({ grokAvailable }) {
+function TranslateTab({ grokAvailable }: TabProps) {
   const [content, setContent] = useState('');
   const [targetLang, setTargetLang] = useState('ne');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<TranslateResult | null>(null);
 
   const handleTranslate = async () => {
     if (!content.trim()) { toast.error('Enter content to translate'); return; }
@@ -647,7 +775,8 @@ function TranslateTab({ grokAvailable }) {
       const res = await aiAPI.translate({ content, target_language: targetLang });
       setResult(res.data);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Translation failed');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Translation failed');
     } finally {
       setLoading(false);
     }
@@ -683,9 +812,9 @@ function TranslateTab({ grokAvailable }) {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Grok is translating…
+                AI is translating…
               </span>
-            ) : '🌐 Translate with Grok'}
+            ) : '🌐 Translate with AI'}
           </button>
         </div>
         <div>
@@ -703,7 +832,7 @@ function TranslateTab({ grokAvailable }) {
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center rounded-2xl border-2 border-dashed border-gray-200 p-8">
               <div className="text-5xl mb-4">🌐</div>
               <p className="font-bold text-gray-600 mb-2">Translation will appear here</p>
-              <p className="text-sm text-gray-400">Grok translates naturally — not word-for-word</p>
+              <p className="text-sm text-gray-400">AI translates naturally — not word-for-word</p>
             </div>
           )}
         </div>
@@ -713,13 +842,13 @@ function TranslateTab({ grokAvailable }) {
 }
 
 // ─── Caption Tab ──────────────────────────────────────────────────────────────
-function CaptionTab({ grokAvailable }) {
+function CaptionTab({ grokAvailable }: TabProps) {
   const [description, setDescription] = useState('');
   const [platform, setPlatform] = useState('instagram');
   const [tone, setTone] = useState('engaging');
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [captions, setCaptions] = useState([]);
+  const [captions, setCaptions] = useState<string[]>([]);
 
   const handleGenerate = async () => {
     if (!description.trim()) { toast.error('Describe your image first'); return; }
@@ -727,7 +856,7 @@ function CaptionTab({ grokAvailable }) {
     try {
       const res = await aiAPI.caption({ image_description: description, platform, tone, business_name: businessName, count: 3 });
       setCaptions(res.data.captions || []);
-    } catch (err) {
+    } catch {
       toast.error('Caption generation failed');
     } finally {
       setLoading(false);
@@ -814,11 +943,11 @@ function CaptionTab({ grokAvailable }) {
 // ─── Best Time Tab ────────────────────────────────────────────────────────────
 function BestTimeTab() {
   const [platform, setPlatform] = useState('all');
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<BestTimeData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const res = await aiAPI.bestTime({ platform });
@@ -826,7 +955,7 @@ function BestTimeTab() {
       } catch { /* silent */ }
       finally { setLoading(false); }
     };
-    fetch();
+    fetchData();
   }, [platform]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" /></div>;
@@ -836,7 +965,7 @@ function BestTimeTab() {
   return (
     <div className="space-y-6">
       <div className="flex gap-2">
-        {[{ value: 'all', label: 'All Platforms' }, ...PLATFORMS].map(p => (
+        {[{ value: 'all', label: 'All Platforms', icon: '' }, ...PLATFORMS].map(p => (
           <button key={p.value} onClick={() => setPlatform(p.value)}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               platform === p.value ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -908,9 +1037,9 @@ function BestTimeTab() {
                     {day.slice(0, 3)}
                   </div>
                   {Array.from({ length: 24 }, (_, h) => {
-                    const cell = data.heatmap.find(c => c.day === d && c.hour === h);
+                    const cell = data.heatmap!.find(c => c.day === d && c.hour === h);
                     const val = cell?.value || 0;
-                    const maxVal = Math.max(...data.heatmap.map(c => c.value || 0), 1);
+                    const maxVal = Math.max(...data.heatmap!.map(c => c.value || 0), 1);
                     const opacity = val > 0 ? 0.15 + (val / maxVal) * 0.85 : 0.05;
                     return (
                       <div key={h} className="rounded-sm py-1.5" title={`${day} ${h}:00 — ${val} engagement`}
@@ -935,13 +1064,13 @@ function BestTimeTab() {
 }
 
 // ─── Insights Tab ─────────────────────────────────────────────────────────────
-function InsightsTab({ grokAvailable }) {
+function InsightsTab({ grokAvailable }: TabProps) {
   const [days, setDays] = useState('30');
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const res = await aiAPI.insights({ days });
@@ -949,10 +1078,10 @@ function InsightsTab({ grokAvailable }) {
       } catch { /* silent */ }
       finally { setLoading(false); }
     };
-    fetch();
+    fetchData();
   }, [days]);
 
-  const TYPE_STYLES = {
+  const TYPE_STYLES: Record<string, string> = {
     error:   'bg-red-50 border-red-200 text-red-700',
     warning: 'bg-amber-50 border-amber-200 text-amber-700',
     success: 'bg-emerald-50 border-emerald-200 text-emerald-700',
@@ -977,7 +1106,7 @@ function InsightsTab({ grokAvailable }) {
         </div>
         {grokAvailable && (
           <span className="flex items-center gap-1 text-xs text-violet-600 font-semibold bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-full">
-            🤖 Grok AI insights included
+            🤖 AI insights included
           </span>
         )}
       </div>
@@ -1026,12 +1155,16 @@ function InsightsTab({ grokAvailable }) {
 export default function AIGeneratorPage() {
   const [activeTab, setActiveTab] = useState('generate');
   const [grokAvailable, setGrokAvailable] = useState(false);
+  const [grokKeyConfigured, setGrokKeyConfigured] = useState(false);
+  const [grokCreditsOk, setGrokCreditsOk] = useState(false);
   const [statusLoaded, setStatusLoaded] = useState(false);
 
   useEffect(() => {
     aiAPI.status()
       .then(res => {
         setGrokAvailable(res.data.grok_available);
+        setGrokKeyConfigured(res.data.grok_key_configured ?? !!res.data.grok_available);
+        setGrokCreditsOk(res.data.grok_credits_ok ?? !!res.data.grok_available);
         setStatusLoaded(true);
       })
       .catch(() => setStatusLoaded(true));
@@ -1047,10 +1180,32 @@ export default function AIGeneratorPage() {
             {statusLoaded && <GrokBadge available={grokAvailable} />}
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            Powered by Grok AI — generate, rewrite, translate, and automate your content
+            Powered by AI — generate, rewrite, translate, and automate your content
           </p>
         </div>
       </div>
+
+      {/* Grok Credits Notice */}
+      {statusLoaded && grokKeyConfigured && !grokCreditsOk && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+          <span className="text-2xl flex-shrink-0">⚡</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-amber-800 text-sm">AI needs credits to run</p>
+            <p className="text-amber-700 text-xs mt-0.5 leading-relaxed">
+              Your API key is configured correctly, but your xAI account has no credits. AI features are currently using template-based fallbacks.
+              Add credits at <a href="https://console.x.ai" target="_blank" rel="noopener noreferrer" className="underline font-bold hover:text-amber-900">console.x.ai</a> to unlock real AI generation.
+            </p>
+          </div>
+          <a
+            href="https://console.x.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 transition-colors whitespace-nowrap"
+          >
+            Add Credits →
+          </a>
+        </div>
+      )}
 
       {/* Tab nav */}
       <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">

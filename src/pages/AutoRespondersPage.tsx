@@ -3,13 +3,20 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { autoRespondersAPI, accountsAPI, aiAPI } from '../utils/api';
 
-const PLATFORM_ICONS = {
+const PLATFORM_ICONS: Record<string, string> = {
   facebook: '📘',
   instagram: '📸',
   tiktok: '🎵',
 };
 
-const TRIGGER_TYPES = [
+interface TriggerType {
+  value: string;
+  label: string;
+  icon: string;
+  desc: string;
+}
+
+const TRIGGER_TYPES: TriggerType[] = [
   { value: 'keyword', label: 'Keyword Match', icon: '🔤', desc: 'Trigger when specific words appear' },
   { value: 'any_comment', label: 'Any Comment', icon: '💬', desc: 'Respond to every comment' },
   { value: 'any_dm', label: 'Any DM', icon: '✉️', desc: 'Respond to all direct messages' },
@@ -23,7 +30,50 @@ const TONE_STYLES = [
   { value: 'formal', label: 'Formal', emoji: '🎩' },
 ];
 
-function StatusBadge({ isActive }) {
+interface Responder {
+  id: string | number;
+  name: string;
+  trigger_type: string;
+  keywords: string[];
+  platforms: string[];
+  response: string;
+  match_type?: string;
+  delay_seconds?: number;
+  account_id?: string | number | null;
+  is_active: number | boolean;
+  match_count?: number;
+}
+
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+}
+
+interface AISuggestion {
+  name?: string;
+  trigger_type?: string;
+  keywords?: string[];
+  response?: string;
+  reason?: string;
+}
+
+interface MatchedRule {
+  id: string | number;
+  name: string;
+}
+
+interface TestResult {
+  matched?: MatchedRule[];
+  first_response?: string;
+}
+
+// ─── StatusBadge ──────────────────────────────────────────────────────────────
+interface StatusBadgeProps {
+  isActive: number | boolean;
+}
+
+function StatusBadge({ isActive }: StatusBadgeProps) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-semibold ${
       isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
@@ -34,7 +84,15 @@ function StatusBadge({ isActive }) {
   );
 }
 
-function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
+// ─── ResponderCard ─────────────────────────────────────────────────────────────
+interface ResponderCardProps {
+  responder: Responder;
+  onToggle: (id: string | number) => void;
+  onEdit: (responder: Responder) => void;
+  onDelete: (id: string | number) => Promise<void>;
+}
+
+function ResponderCard({ responder, onToggle, onEdit, onDelete }: ResponderCardProps) {
   const [deleting, setDeleting] = useState(false);
   const triggerType = TRIGGER_TYPES.find(t => t.value === responder.trigger_type) || TRIGGER_TYPES[0];
   const platforms = Array.isArray(responder.platforms) ? responder.platforms : [];
@@ -69,16 +127,14 @@ function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Toggle */}
             <button
               onClick={() => onToggle(responder.id)}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                 responder.is_active ? 'bg-emerald-500' : 'bg-gray-200'
               }`}
             >
-              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${
-                responder.is_active ? 'translate-x-4.5' : 'translate-x-0.5'
-              }`} style={{ transform: responder.is_active ? 'translateX(18px)' : 'translateX(2px)' }} />
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform`}
+                style={{ transform: responder.is_active ? 'translateX(18px)' : 'translateX(2px)' }} />
             </button>
             <button onClick={() => onEdit(responder)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -93,22 +149,17 @@ function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
           </div>
         </div>
 
-        {/* Response preview */}
         <div className="mt-3 p-3 bg-gray-50 rounded-xl">
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Auto-Reply</p>
           <p className="text-sm text-gray-700 line-clamp-2">{responder.response}</p>
         </div>
 
-        {/* Meta row */}
         <div className="mt-3 flex items-center gap-3 flex-wrap">
-          {/* Platforms */}
           <div className="flex gap-1">
             {platforms.map(p => (
               <span key={p} className="text-sm">{PLATFORM_ICONS[p] || '🌐'}</span>
             ))}
           </div>
-
-          {/* Keywords */}
           {keywords.length > 0 && (
             <div className="flex gap-1 flex-wrap">
               {keywords.slice(0, 3).map(kw => (
@@ -121,8 +172,6 @@ function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
               )}
             </div>
           )}
-
-          {/* Stats */}
           <div className="ml-auto flex items-center gap-3 text-xs text-gray-400">
             <span className="flex items-center gap-1">
               <span className="font-semibold text-gray-600">{(responder.match_count || 0).toLocaleString()}</span> triggered
@@ -134,8 +183,30 @@ function ResponderCard({ responder, onToggle, onEdit, onDelete }) {
   );
 }
 
-function ResponderModal({ open, onClose, onSave, initial, accounts }) {
-  const [form, setForm] = useState({
+// ─── ResponderModal ─────────────────────────────────────────────────────────────
+interface ResponderFormState {
+  name: string;
+  trigger_type: string;
+  keywords: string[];
+  keywordInput: string;
+  response: string;
+  platforms: string[];
+  match_type: string;
+  delay_seconds: number;
+  account_id: string | number;
+  is_active: number;
+}
+
+interface ResponderModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: Omit<ResponderFormState, 'keywordInput'> & { account_id: string | number | null }, id?: string | number) => Promise<void>;
+  initial: Partial<Responder> | null;
+  accounts: Account[];
+}
+
+function ResponderModal({ open, onClose, onSave, initial, accounts }: ResponderModalProps) {
+  const [form, setForm] = useState<ResponderFormState>({
     name: '', trigger_type: 'keyword', keywords: [], keywordInput: '',
     response: '', platforms: [], match_type: 'any', delay_seconds: 0,
     account_id: '', is_active: 1,
@@ -154,7 +225,7 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
         match_type: initial.match_type || 'any',
         delay_seconds: initial.delay_seconds || 0,
         account_id: initial.account_id || '',
-        is_active: initial.is_active ?? 1,
+        is_active: initial.is_active ? 1 : 1,
       });
     } else {
       setForm({
@@ -174,9 +245,9 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
     }
   };
 
-  const removeKeyword = (kw) => setForm(f => ({ ...f, keywords: f.keywords.filter(k => k !== kw) }));
+  const removeKeyword = (kw: string) => setForm(f => ({ ...f, keywords: f.keywords.filter(k => k !== kw) }));
 
-  const togglePlatform = (p) => {
+  const togglePlatform = (p: string) => {
     setForm(f => ({
       ...f,
       platforms: f.platforms.includes(p) ? f.platforms.filter(x => x !== p) : [...f.platforms, p],
@@ -217,7 +288,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Name */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Name</label>
             <input
@@ -229,7 +299,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
             />
           </div>
 
-          {/* Trigger Type */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trigger</label>
             <div className="grid grid-cols-2 gap-2">
@@ -253,7 +322,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
             </div>
           </div>
 
-          {/* Keywords (only for keyword trigger) */}
           {form.trigger_type === 'keyword' && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Keywords</label>
@@ -302,7 +370,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
             </div>
           )}
 
-          {/* Response */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-semibold text-gray-700">Auto-Reply Message</label>
@@ -315,7 +382,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
               rows={4}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-300 resize-none"
             />
-            {/* Variable chips */}
             <div className="flex gap-1.5 mt-2 flex-wrap">
               <span className="text-xs text-gray-400">Insert:</span>
               {VARIABLES.map(v => (
@@ -330,7 +396,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
             </div>
           </div>
 
-          {/* Platforms */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Platforms</label>
             <div className="flex gap-2">
@@ -351,7 +416,6 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
             <p className="text-xs text-gray-400 mt-1">No selection = all platforms</p>
           </div>
 
-          {/* Delay */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Response Delay: <span className="text-rose-500">{form.delay_seconds}s</span>
@@ -387,9 +451,15 @@ function ResponderModal({ open, onClose, onSave, initial, accounts }) {
   );
 }
 
-function TestModal({ open, onClose }) {
+// ─── TestModal ─────────────────────────────────────────────────────────────────
+interface TestModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function TestModal({ open, onClose }: TestModalProps) {
   const [message, setMessage] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<TestResult | null>(null);
   const [testing, setTesting] = useState(false);
 
   if (!open) return null;
@@ -428,7 +498,7 @@ function TestModal({ open, onClose }) {
           </div>
           {result && (
             <div className="space-y-3">
-              {result.matched?.length > 0 ? (
+              {result.matched && result.matched.length > 0 ? (
                 <>
                   <div className="flex items-center gap-2">
                     <span className="text-emerald-500">✓</span>
@@ -474,14 +544,18 @@ function TestModal({ open, onClose }) {
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function AutoRespondersPage() {
   const { t } = useTranslation();
-  const [responders, setResponders] = useState([]);
-  const [accounts, setAccounts] = useState([]);
+  const [responders, setResponders] = useState<Responder[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showTest, setShowTest] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<Partial<Responder> | null>(null);
+  const [suggestingAI, setSuggestingAI] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -501,7 +575,7 @@ export default function AutoRespondersPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleSave = async (data, id) => {
+  const handleSave = async (data: Omit<ResponderFormState, 'keywordInput'> & { account_id: string | number | null }, id?: string | number) => {
     try {
       if (id) {
         await autoRespondersAPI.update(id, data);
@@ -514,11 +588,12 @@ export default function AutoRespondersPage() {
       setEditing(null);
       fetchAll();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to save');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to save');
     }
   };
 
-  const handleToggle = async (id) => {
+  const handleToggle = async (id: string | number) => {
     try {
       const res = await autoRespondersAPI.toggle(id);
       setResponders(prev => prev.map(r => r.id === id ? { ...r, is_active: res.data.is_active } : r));
@@ -527,7 +602,7 @@ export default function AutoRespondersPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string | number) => {
     try {
       await autoRespondersAPI.delete(id);
       setResponders(prev => prev.filter(r => r.id !== id));
@@ -540,10 +615,6 @@ export default function AutoRespondersPage() {
   const activeCount = responders.filter(r => r.is_active).length;
   const totalTriggers = responders.reduce((sum, r) => sum + (r.match_count || 0), 0);
 
-  const [suggestingAI, setSuggestingAI] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState([]);
-  const [showAISuggestions, setShowAISuggestions] = useState(false);
-
   const handleAISuggest = async () => {
     setSuggestingAI(true);
     try {
@@ -551,13 +622,14 @@ export default function AutoRespondersPage() {
       setAiSuggestions(res.data.suggestions || []);
       setShowAISuggestions(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'AI suggestions failed');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'AI suggestions failed');
     } finally {
       setSuggestingAI(false);
     }
   };
 
-  const handleUseSuggestion = (suggestion) => {
+  const handleUseSuggestion = (suggestion: AISuggestion) => {
     setEditing({
       name: suggestion.name || '',
       trigger_type: suggestion.trigger_type || 'keyword',
@@ -574,16 +646,12 @@ export default function AutoRespondersPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
-            Auto-Responders
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Auto-Responders</h1>
           <p className="text-sm text-gray-400 mt-0.5">Automate replies to comments and DMs 24/7</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* AI Suggest button */}
           <button
             onClick={handleAISuggest}
             disabled={suggestingAI}
@@ -619,7 +687,6 @@ export default function AutoRespondersPage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Total Rules', value: responders.length, icon: '🤖', gradient: 'linear-gradient(135deg, #f43f5e, #ec4899)' },
@@ -638,7 +705,6 @@ export default function AutoRespondersPage() {
         ))}
       </div>
 
-      {/* How it works banner */}
       {responders.length === 0 && !loading && (
         <div
           className="rounded-2xl p-6 text-white"
@@ -665,7 +731,6 @@ export default function AutoRespondersPage() {
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin" />
@@ -687,7 +752,7 @@ export default function AutoRespondersPage() {
               key={r.id}
               responder={r}
               onToggle={handleToggle}
-              onEdit={(r) => { setEditing(r); setShowModal(true); }}
+              onEdit={(responder) => { setEditing(responder); setShowModal(true); }}
               onDelete={handleDelete}
             />
           ))}
@@ -703,20 +768,19 @@ export default function AutoRespondersPage() {
       />
       <TestModal open={showTest} onClose={() => setShowTest(false)} />
 
-      {/* AI Suggestions Modal */}
       {showAISuggestions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAISuggestions(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                🤖 Grok AI Suggestions
+                🤖 AI Suggestions
               </h2>
               <p className="text-sm text-gray-400 mt-0.5">AI-generated auto-responder rules for your business</p>
             </div>
             <div className="p-6 space-y-3">
               {aiSuggestions.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-6">No suggestions available. Configure GROK_API_KEY for AI-powered suggestions.</p>
+                <p className="text-sm text-gray-500 text-center py-6">No suggestions available. Configure API key for AI-powered suggestions.</p>
               ) : (
                 aiSuggestions.map((s, i) => (
                   <div key={i} className="border border-gray-100 rounded-xl p-4 hover:border-violet-200 transition-colors">

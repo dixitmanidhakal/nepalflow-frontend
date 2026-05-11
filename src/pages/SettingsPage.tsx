@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { authAPI, accountsAPI } from '../utils/api';
+import { authAPI, accountsAPI, postsAPI } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 
-const TIMEZONES = [
+interface TimezoneOption {
+  value: string;
+  label: string;
+}
+
+const TIMEZONES: TimezoneOption[] = [
   { value: 'Asia/Kathmandu', label: '🇳🇵 Asia/Kathmandu (NPT +5:45)' },
   { value: 'Asia/Kolkata', label: '🇮🇳 Asia/Kolkata (IST +5:30)' },
   { value: 'UTC', label: '🌍 UTC +0:00' },
@@ -14,14 +20,44 @@ const TIMEZONES = [
   { value: 'Asia/Singapore', label: '🇸🇬 Asia/Singapore (SGT +8:00)' },
 ];
 
-const PLATFORM_ICONS = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
-const PLATFORM_COLORS = {
+const PLATFORM_ICONS: Record<string, string> = { facebook: '📘', instagram: '📸', tiktok: '🎵' };
+const PLATFORM_COLORS: Record<string, string> = {
   facebook: 'linear-gradient(135deg, #1877f2, #0a5fd4)',
   instagram: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)',
   tiktok: 'linear-gradient(135deg, #161616, #ff0050)',
 };
 
-function SectionCard({ title, desc, children }) {
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+  is_active?: number | boolean;
+}
+
+interface ProfileState {
+  name: string;
+  email: string;
+  bio: string;
+  website: string;
+  timezone: string;
+}
+
+interface NotifPrefs {
+  email_new_comment: boolean;
+  email_post_published: boolean;
+  email_post_failed: boolean;
+  push_new_comment: boolean;
+  push_analytics_report: boolean;
+}
+
+// ─── SectionCard ───────────────────────────────────────────────────────────────
+interface SectionCardProps {
+  title: string;
+  desc?: string;
+  children: React.ReactNode;
+}
+
+function SectionCard({ title, desc, children }: SectionCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="p-5 border-b border-gray-50">
@@ -33,7 +69,15 @@ function SectionCard({ title, desc, children }) {
   );
 }
 
-function ToggleSwitch({ value, onChange, label, desc }) {
+// ─── ToggleSwitch ──────────────────────────────────────────────────────────────
+interface ToggleSwitchProps {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  desc?: string;
+}
+
+function ToggleSwitch({ value, onChange, label, desc }: ToggleSwitchProps) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
@@ -55,26 +99,36 @@ function ToggleSwitch({ value, onChange, label, desc }) {
   );
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { user, login } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user;
+  const login = auth?.login;
   const [activeTab, setActiveTab] = useState('profile');
-  const [accounts, setAccounts] = useState([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
-  // Profile
-  const [profile, setProfile] = useState({ name: '', email: '', bio: '', website: '', timezone: 'Asia/Kathmandu' });
+  const [profile, setProfile] = useState<ProfileState>({
+    name: '', email: '', bio: '', website: '', timezone: 'Asia/Kathmandu',
+  });
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Notifications
-  const [notifPrefs, setNotifPrefs] = useState({
-    email_new_comment: true,
-    email_post_published: true,
-    email_post_failed: true,
-    push_new_comment: false,
-    push_analytics_report: true,
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(() => {
+    try {
+      const saved = localStorage.getItem('nepalflow_notif_prefs');
+      if (saved) return JSON.parse(saved) as NotifPrefs;
+    } catch { /* ignore */ }
+    return {
+      email_new_comment: true,
+      email_post_published: true,
+      email_post_failed: true,
+      push_new_comment: false,
+      push_analytics_report: true,
+    };
   });
+  const [savingNotifs, setSavingNotifs] = useState(false);
 
-  // Appearance
   const [language, setLanguage] = useState(user?.language || 'en');
 
   useEffect(() => {
@@ -86,6 +140,7 @@ export default function SettingsPage() {
         website: user.website || '',
         timezone: user.timezone || 'Asia/Kathmandu',
       });
+      setAvatar(user.avatar_url || null);
       setLanguage(user.language || 'en');
     }
     fetchAccounts();
@@ -101,18 +156,33 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      const res = await authAPI.updateProfile(profile);
-      // Update auth context if response includes user
-      if (res.data.user) login(localStorage.getItem('nepalflow_token'), res.data.user);
+      const res = await authAPI.updateProfile({
+        name: profile.name,
+        bio: profile.bio,
+        website: profile.website,
+        timezone: profile.timezone,
+        ...(avatar !== user?.avatar_url ? { avatar_url: avatar } : {}),
+      });
+      if (res.data.user && login) login(localStorage.getItem('nepalflow_token') || '', res.data.user);
       toast.success('Profile updated!');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to update profile');
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to update profile');
     } finally {
       setSavingProfile(false);
     }
   };
 
-  const handleLanguageChange = async (lang) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatar(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleLanguageChange = async (lang: string) => {
     setLanguage(lang);
     i18n.changeLanguage(lang);
     try {
@@ -120,7 +190,7 @@ export default function SettingsPage() {
     } catch { /* silent */ }
   };
 
-  const handleDisconnect = async (id, name) => {
+  const handleDisconnect = async (id: string | number, name?: string) => {
     if (!window.confirm(`Disconnect ${name}?`)) return;
     try {
       await accountsAPI.disconnect(id);
@@ -141,13 +211,11 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Settings</h1>
         <p className="text-sm text-gray-400 mt-0.5">Manage your account and preferences</p>
       </div>
 
-      {/* Tab Nav */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
         {TABS.map(tab => (
           <button
@@ -167,18 +235,30 @@ export default function SettingsPage() {
       {activeTab === 'profile' && (
         <SectionCard title="Profile Information" desc="Your public profile details">
           <div className="space-y-4">
-            {/* Avatar placeholder */}
             <div className="flex items-center gap-4">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
-              >
-                {(profile.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
-              </div>
+              <label className="relative cursor-pointer group flex-shrink-0">
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="sr-only" />
+                <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 relative">
+                  {avatar ? (
+                    <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center text-white text-2xl font-black"
+                      style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
+                    >
+                      {(profile.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
+                    <span className="text-white text-xs font-bold">Change</span>
+                  </div>
+                </div>
+              </label>
               <div>
                 <p className="font-semibold text-gray-800">{profile.name || user?.email}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{user?.email}</p>
                 <p className="text-xs text-gray-400">Member since {new Date(user?.created_at || Date.now()).getFullYear()}</p>
+                <p className="text-xs text-gray-400 mt-1">Click the avatar to change photo (max 2MB)</p>
               </div>
             </div>
 
@@ -247,13 +327,13 @@ export default function SettingsPage() {
               <div className="text-center py-8">
                 <div className="text-4xl mb-3">🔗</div>
                 <p className="text-gray-500 text-sm">No accounts connected</p>
-                <a
-                  href="/accounts"
+                <Link
+                  to="/accounts"
                   className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-opacity"
                   style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
                 >
                   Connect Accounts
-                </a>
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">
@@ -286,12 +366,12 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ))}
-                <a
-                  href="/accounts"
+                <Link
+                  to="/accounts"
                   className="block text-center text-sm text-rose-500 hover:text-rose-600 font-semibold py-2"
                 >
                   + Connect More Accounts
-                </a>
+                </Link>
               </div>
             )}
           </SectionCard>
@@ -342,11 +422,21 @@ export default function SettingsPage() {
           </SectionCard>
 
           <button
-            onClick={() => toast.success('Notification preferences saved!')}
-            className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+            onClick={async () => {
+              setSavingNotifs(true);
+              try {
+                localStorage.setItem('nepalflow_notif_prefs', JSON.stringify(notifPrefs));
+                await authAPI.updateProfile({ notification_prefs: notifPrefs }).catch(() => {});
+                toast.success('Notification preferences saved!');
+              } finally {
+                setSavingNotifs(false);
+              }
+            }}
+            disabled={savingNotifs}
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #f43f5e, #8b5cf6)' }}
           >
-            Save Preferences
+            {savingNotifs ? 'Saving…' : 'Save Preferences'}
           </button>
         </div>
       )}
@@ -355,7 +445,6 @@ export default function SettingsPage() {
       {activeTab === 'appearance' && (
         <SectionCard title="Appearance & Language" desc="Customize your NepalFlow experience">
           <div className="space-y-6">
-            {/* Language */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">Language / भाषा</label>
               <div className="grid grid-cols-2 gap-3">
@@ -387,12 +476,11 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Theme (cosmetic, future feature) */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">Theme</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Light', icon: '☀️', active: true },
+                  { label: 'Light', icon: '☀️', active: true, soon: false },
                   { label: 'Dark', icon: '🌙', active: false, soon: true },
                   { label: 'System', icon: '💻', active: false, soon: true },
                 ].map(theme => (
@@ -431,7 +519,17 @@ export default function SettingsPage() {
                   <p className="text-xs text-red-600 mt-0.5">Permanently delete all your scheduled and published posts</p>
                 </div>
                 <button
-                  onClick={() => toast.error('Contact support to delete all posts')}
+                  onClick={async () => {
+                    if (!window.confirm('Delete ALL your posts? This cannot be undone.')) return;
+                    try {
+                      const res = await postsAPI.list({ limit: 200 });
+                      const posts = res.data.posts || [];
+                      await Promise.all(posts.map((p: { id: string | number }) => postsAPI.delete(p.id)));
+                      toast.success(`Deleted ${posts.length} post${posts.length !== 1 ? 's' : ''}`);
+                    } catch {
+                      toast.error('Failed to delete posts');
+                    }
+                  }}
                   className="px-3 py-1.5 text-xs font-bold text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   Delete Posts
@@ -444,7 +542,18 @@ export default function SettingsPage() {
                   <p className="text-xs text-red-600 mt-0.5">Remove all connected social media accounts</p>
                 </div>
                 <button
-                  onClick={() => toast.error('Contact support to disconnect all accounts')}
+                  onClick={async () => {
+                    if (!window.confirm('Disconnect ALL social accounts? You will need to reconnect them.')) return;
+                    try {
+                      const res = await accountsAPI.list();
+                      const accts: Account[] = res.data.accounts || res.data || [];
+                      await Promise.all(accts.map(a => accountsAPI.disconnect(a.id)));
+                      setAccounts([]);
+                      toast.success(`Disconnected ${accts.length} account${accts.length !== 1 ? 's' : ''}`);
+                    } catch {
+                      toast.error('Failed to disconnect accounts');
+                    }
+                  }}
                   className="px-3 py-1.5 text-xs font-bold text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition-colors"
                 >
                   Disconnect All
@@ -457,7 +566,7 @@ export default function SettingsPage() {
                   <p className="text-xs text-red-600 mt-0.5">Permanently delete your NepalFlow account and all data</p>
                 </div>
                 <button
-                  onClick={() => toast.error('Contact support to delete your account')}
+                  onClick={() => toast.error('To delete your account, contact support@nepalflow.com')}
                   className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Delete Account

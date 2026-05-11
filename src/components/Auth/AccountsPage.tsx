@@ -6,7 +6,25 @@ import { useAuth } from '../../hooks/useAuth';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
-const PLATFORM_CONFIG = {
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+  profile_pic?: string;
+  is_active: number | boolean;
+}
+
+interface PlatformConfig {
+  name: string;
+  gradient: string;
+  bg: string;
+  border: string;
+  icon: React.ReactNode;
+  description: string;
+  provider: string;
+}
+
+const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   facebook: {
     name: 'Facebook',
     gradient: 'linear-gradient(135deg, #1877f2, #0d5cbf)',
@@ -48,7 +66,16 @@ const PLATFORM_CONFIG = {
   },
 };
 
-function PlatformCard({ config, accounts, onConnect, onDisconnect, onToggle, connecting }) {
+interface PlatformCardProps {
+  config: PlatformConfig;
+  accounts: Account[];
+  onConnect: (provider: string) => void;
+  onDisconnect: (id: string | number) => void;
+  onToggle: (id: string | number) => void;
+  connecting: string | null;
+}
+
+function PlatformCard({ config, accounts, onConnect, onDisconnect, onToggle, connecting }: PlatformCardProps) {
   const platformAccounts = accounts.filter(a => a.platform === config.provider);
   const isConnected = platformAccounts.length > 0;
 
@@ -157,10 +184,10 @@ function PlatformCard({ config, accounts, onConnect, onDisconnect, onToggle, con
 
 export default function AccountsPage() {
   const { t } = useTranslation();
-  const { login } = useAuth();
-  const [accounts, setAccounts] = useState([]);
+  const auth = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(null);
+  const [connecting, setConnecting] = useState<string | null>(null);
   const [showFbToken, setShowFbToken] = useState(false);
   const [fbToken, setFbToken] = useState('');
   const [tokenConnecting, setTokenConnecting] = useState(false);
@@ -175,7 +202,7 @@ export default function AccountsPage() {
 
   useEffect(() => { fetchAccounts(); }, []);
 
-  const handleConnect = (provider) => {
+  const handleConnect = (provider: string) => {
     setConnecting(provider);
     const width = 520, height = 640;
     const left = window.screenX + (window.outerWidth - width) / 2;
@@ -186,13 +213,19 @@ export default function AccountsPage() {
       `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
     );
 
-    const handleMessage = async (event) => {
-      if (event.data?.type !== 'OAUTH_SUCCESS') return;
+    const handleMessage = async (event: MessageEvent) => {
+      if (!event.data?.type || !['OAUTH_SUCCESS', 'OAUTH_ERROR'].includes(event.data.type)) return;
       window.removeEventListener('message', handleMessage);
+
+      if (event.data.type === 'OAUTH_ERROR') {
+        toast.error(event.data.message || `${provider} connection failed`, { duration: 7000, style: { maxWidth: 420 } });
+        setConnecting(null);
+        return;
+      }
+
       try {
-        // Update JWT with new account in it
         const res = await authAPI.getMe(event.data.token);
-        login(event.data.token, res.data.user);
+        auth?.login(event.data.token, res.data.user);
         await fetchAccounts();
         toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} connected successfully! 🎉`);
       } catch {
@@ -221,15 +254,16 @@ export default function AccountsPage() {
       setFbToken('');
       setShowFbToken(false);
       await fetchAccounts();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Connection failed');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Connection failed');
     } finally {
       setTokenConnecting(false);
     }
   };
 
-  const handleDisconnect = async (id) => {
-    if (!window.confirm('Disconnect this account? Scheduled posts will remain but won\'t publish.')) return;
+  const handleDisconnect = async (id: string | number) => {
+    if (!window.confirm("Disconnect this account? Scheduled posts will remain but won't publish.")) return;
     try {
       await accountsAPI.disconnect(id);
       toast.success('Account disconnected');
@@ -239,7 +273,7 @@ export default function AccountsPage() {
     }
   };
 
-  const handleToggle = async (id) => {
+  const handleToggle = async (id: string | number) => {
     try {
       await accountsAPI.toggle(id);
       setAccounts(prev => prev.map(a =>

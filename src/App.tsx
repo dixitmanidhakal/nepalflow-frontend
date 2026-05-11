@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
@@ -72,7 +72,7 @@ function AppLayout() {
   useEffect(() => {
     const fetchUnread = () => {
       inboxAPI.unreadCount()
-        .then(res => setUnreadCount(res.data.unread))
+        .then((res: { data: { unread: number } }) => setUnreadCount(res.data.unread))
         .catch(() => {});
     };
     fetchUnread();
@@ -114,7 +114,7 @@ function AppLayout() {
   );
 }
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) return (
@@ -136,7 +136,7 @@ function ProtectedRoute({ children }) {
     </div>
   );
 
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {

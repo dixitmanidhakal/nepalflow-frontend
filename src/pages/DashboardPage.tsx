@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { analyticsAPI, postsAPI } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import { formatDate, platformIcon, statusBadge, truncate } from '../utils/helpers';
 
-const PLATFORM_COLORS = {
+const PLATFORM_COLORS: Record<string, string> = {
   facebook: 'from-blue-500 to-blue-700',
   instagram: 'from-pink-500 via-rose-500 to-orange-400',
   tiktok: 'from-gray-900 via-teal-400 to-rose-500',
 };
 
-function StatCard({ icon, label, value, gradient, trend, trendLabel }) {
+interface StatCardProps {
+  icon: string;
+  label: string;
+  value: React.ReactNode;
+  gradient: string;
+  trend?: number;
+  trendLabel?: string;
+}
+
+function StatCard({ icon, label, value, gradient, trend, trendLabel }: StatCardProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
-      {/* Accent glow */}
       <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-10 blur-xl bg-gradient-to-br ${gradient}`} />
       <div className="flex items-start justify-between mb-4">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-gradient-to-br ${gradient}`}>
@@ -37,7 +46,15 @@ function StatCard({ icon, label, value, gradient, trend, trendLabel }) {
   );
 }
 
-function QuickAction({ to, icon, label, sublabel, gradient }) {
+interface QuickActionProps {
+  to: string;
+  icon: string;
+  label: string;
+  sublabel?: string;
+  gradient: string;
+}
+
+function QuickAction({ to, icon, label, sublabel, gradient }: QuickActionProps) {
   return (
     <Link
       to={to}
@@ -64,10 +81,36 @@ function QuickAction({ to, icon, label, sublabel, gradient }) {
   );
 }
 
-function PostRow({ post }) {
+interface Post {
+  id: string;
+  status: string;
+  platform: string;
+  content: string;
+  account_name: string;
+  scheduled_at: string;
+}
+
+interface PostRowProps {
+  post: Post;
+  onDuplicate: (id: string) => Promise<void>;
+}
+
+function PostRow({ post, onDuplicate }: PostRowProps) {
   const badge = statusBadge(post.status);
+  const [duplicating, setDuplicating] = useState(false);
+
+  const handleDuplicate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDuplicating(true);
+    try {
+      await onDuplicate(post.id);
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   return (
-    <div className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+    <div className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 group">
       <div className="flex-shrink-0">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base bg-gradient-to-br ${PLATFORM_COLORS[post.platform] || 'from-gray-400 to-gray-600'}`}>
           {platformIcon(post.platform)}
@@ -81,18 +124,42 @@ function PostRow({ post }) {
           <span className="text-xs text-gray-400">{formatDate(post.scheduled_at)}</span>
         </div>
       </div>
-      <span className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-full font-semibold ${badge.color}`}>
-        {badge.label}
-      </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${badge.color}`}>
+          {badge.label}
+        </span>
+        <button
+          onClick={handleDuplicate}
+          disabled={duplicating}
+          title="Duplicate post"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 disabled:opacity-40"
+        >
+          {duplicating ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          )}
+        </button>
+      </div>
     </div>
   );
+}
+
+interface Overview {
+  scheduled_posts?: number;
+  total_posts?: number;
+  unread_inbox?: number;
+  failed_posts?: number;
+  total_likes?: number;
+  total_comments?: number;
+  total_shares?: number;
 }
 
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [overview, setOverview] = useState(null);
-  const [recentPosts, setRecentPosts] = useState([]);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const now = new Date();
   const hour = now.getHours();
@@ -102,11 +169,22 @@ export default function DashboardPage() {
     Promise.all([
       analyticsAPI.overview({ days: 30 }),
       postsAPI.list({ limit: 6 }),
-    ]).then(([ovRes, postsRes]) => {
+    ]).then(([ovRes, postsRes]: [{ data: { summary: Overview } }, { data: { posts: Post[] } }]) => {
       setOverview(ovRes.data.summary);
       setRecentPosts(postsRes.data.posts);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  const handleDuplicate = async (postId: string) => {
+    try {
+      const res = await postsAPI.duplicate(postId);
+      toast.success('Post duplicated and scheduled for tomorrow!');
+      setRecentPosts(prev => [res.data.post, ...prev].slice(0, 6));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || 'Failed to duplicate post');
+    }
+  };
 
   if (loading) {
     return (
@@ -126,7 +204,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <p className="text-sm font-medium text-gray-400 mb-1">{greeting} 👋</p>
@@ -149,104 +226,34 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon="📋"
-          label="Scheduled"
-          value={overview?.scheduled_posts ?? 0}
-          gradient="from-amber-400 to-orange-500"
-          trendLabel="Upcoming posts"
-        />
-        <StatCard
-          icon="✅"
-          label="Published"
-          value={overview?.total_posts ?? 0}
-          gradient="from-emerald-400 to-teal-500"
-          trendLabel="Total published"
-        />
-        <StatCard
-          icon="💬"
-          label="Unread"
-          value={overview?.unread_inbox ?? 0}
-          gradient="from-blue-400 to-indigo-500"
-          trendLabel="Messages & comments"
-        />
-        <StatCard
-          icon="⚡"
-          label="Failed"
-          value={overview?.failed_posts ?? 0}
-          gradient="from-rose-400 to-red-500"
-          trendLabel="Need attention"
-        />
+        <StatCard icon="📋" label="Scheduled" value={overview?.scheduled_posts ?? 0} gradient="from-amber-400 to-orange-500" trendLabel="Upcoming posts" />
+        <StatCard icon="✅" label="Published" value={overview?.total_posts ?? 0} gradient="from-emerald-400 to-teal-500" trendLabel="Total published" />
+        <StatCard icon="💬" label="Unread" value={overview?.unread_inbox ?? 0} gradient="from-blue-400 to-indigo-500" trendLabel="Messages & comments" />
+        <StatCard icon="⚡" label="Failed" value={overview?.failed_posts ?? 0} gradient="from-rose-400 to-red-500" trendLabel="Need attention" />
       </div>
 
-      {/* Engagement row */}
       <div className="grid grid-cols-3 gap-4">
-        <StatCard
-          icon="❤️"
-          label="Total Likes"
-          value={(overview?.total_likes || 0).toLocaleString()}
-          gradient="from-pink-400 to-rose-500"
-        />
-        <StatCard
-          icon="💬"
-          label="Comments"
-          value={(overview?.total_comments || 0).toLocaleString()}
-          gradient="from-violet-400 to-purple-500"
-        />
-        <StatCard
-          icon="🔁"
-          label="Shares"
-          value={(overview?.total_shares || 0).toLocaleString()}
-          gradient="from-cyan-400 to-blue-500"
-        />
+        <StatCard icon="❤️" label="Total Likes" value={(overview?.total_likes || 0).toLocaleString()} gradient="from-pink-400 to-rose-500" />
+        <StatCard icon="💬" label="Comments" value={(overview?.total_comments || 0).toLocaleString()} gradient="from-violet-400 to-purple-500" />
+        <StatCard icon="🔁" label="Shares" value={(overview?.total_shares || 0).toLocaleString()} gradient="from-cyan-400 to-blue-500" />
       </div>
 
-      {/* Quick actions + Recent Posts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Quick Actions */}
         <div className="lg:col-span-2">
           <h2 className="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
-            <QuickAction
-              to="/compose"
-              icon="✏️"
-              label="New Post"
-              sublabel="Schedule content"
-              gradient="#f43f5e, #8b5cf6"
-            />
-            <QuickAction
-              to="/calendar"
-              icon="📅"
-              label="Calendar"
-              sublabel="View schedule"
-              gradient="#f59e0b, #f97316"
-            />
-            <QuickAction
-              to="/inbox"
-              icon="💬"
-              label="Inbox"
-              sublabel="Reply to messages"
-              gradient="#3b82f6, #6366f1"
-            />
-            <QuickAction
-              to="/accounts"
-              icon="🔗"
-              label="Accounts"
-              sublabel="Manage socials"
-              gradient="#10b981, #06b6d4"
-            />
+            <QuickAction to="/compose" icon="✏️" label="New Post" sublabel="Schedule content" gradient="#f43f5e, #8b5cf6" />
+            <QuickAction to="/calendar" icon="📅" label="Calendar" sublabel="View schedule" gradient="#f59e0b, #f97316" />
+            <QuickAction to="/inbox" icon="💬" label="Inbox" sublabel="Reply to messages" gradient="#3b82f6, #6366f1" />
+            <QuickAction to="/accounts" icon="🔗" label="Accounts" sublabel="Manage socials" gradient="#10b981, #06b6d4" />
           </div>
         </div>
 
-        {/* Recent posts */}
         <div className="lg:col-span-3">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Recent Posts</h2>
-            <Link to="/calendar" className="text-sm text-rose-500 hover:text-rose-600 font-semibold">
-              View all →
-            </Link>
+            <Link to="/calendar" className="text-sm text-rose-500 hover:text-rose-600 font-semibold">View all →</Link>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {recentPosts.length === 0 ? (
@@ -264,14 +271,13 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {recentPosts.map(post => <PostRow key={post.id} post={post} />)}
+                {recentPosts.map(post => <PostRow key={post.id} post={post} onDuplicate={handleDuplicate} />)}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Connect CTA banner */}
       {overview?.total_posts === 0 && (
         <div
           className="rounded-2xl p-6 flex items-center gap-6 flex-wrap"

@@ -3,18 +3,37 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
-import { postsAPI, accountsAPI } from '../../utils/api';
+import { postsAPI, accountsAPI, templatesAPI, aiAPI } from '../../utils/api';
 import { Link } from 'react-router-dom';
 
-const PLATFORM_LIMITS = {
+interface PlatformLimit {
+  max: number;
+  label: string;
+  color: string;
+  gradient: string;
+}
+
+const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
   facebook: { max: 63206, label: 'Facebook', color: '#1877f2', gradient: 'linear-gradient(135deg, #1877f2, #0d5cbf)' },
   instagram: { max: 2200, label: 'Instagram', color: '#e1306c', gradient: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' },
   tiktok: { max: 2200, label: 'TikTok', color: '#ee1d52', gradient: 'linear-gradient(135deg, #161616, #2dd4bf, #ee1d52)' },
 };
 
-const DEFAULT_LIMIT = { max: 63206, label: 'Post', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #6366f1)' };
+const DEFAULT_LIMIT: PlatformLimit = { max: 63206, label: 'Post', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #6366f1)' };
 
-function PlatformIcon({ platform, size = 20 }) {
+interface Account {
+  id: string | number;
+  platform: string;
+  account_name?: string;
+  is_active: number | boolean;
+}
+
+interface PlatformIconProps {
+  platform: string;
+  size?: number;
+}
+
+function PlatformIcon({ platform, size = 20 }: PlatformIconProps) {
   if (platform === 'facebook') return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -33,7 +52,15 @@ function PlatformIcon({ platform, size = 20 }) {
   return <span className="text-white text-sm font-bold">{platform?.[0]?.toUpperCase() || '?'}</span>;
 }
 
-function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
+interface PostPreviewProps {
+  account?: Account;
+  content: string;
+  hashtags: string[];
+  mediaUrl?: string;
+  scheduledAt?: string;
+}
+
+function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }: PostPreviewProps) {
   const platform = account?.platform || 'facebook';
   const config = PLATFORM_LIMITS[platform] || DEFAULT_LIMIT;
   const fullText = content + (hashtags.length ? '\n\n' + hashtags.join(' ') : '');
@@ -41,7 +68,6 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
   if (platform === 'instagram') {
     return (
       <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm max-w-sm mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="w-8 h-8 rounded-full" style={{ background: config.gradient }} />
           <div>
@@ -53,9 +79,8 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
             </svg>
           </div>
         </div>
-        {/* Image */}
         {mediaUrl ? (
-          <img src={mediaUrl} alt="" className="w-full aspect-square object-cover" onError={e => e.target.style.display='none'} />
+          <img src={mediaUrl} alt="" className="w-full aspect-square object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         ) : (
           <div className="w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
             <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,12 +88,10 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
             </svg>
           </div>
         )}
-        {/* Actions */}
         <div className="px-4 pt-3 pb-1 flex gap-4">
           <span>♥</span><span>💬</span><span>📤</span>
           <span className="ml-auto">🔖</span>
         </div>
-        {/* Caption */}
         <div className="px-4 pb-4">
           <p className="text-sm text-gray-800 mt-1 line-clamp-3">
             <span className="font-bold mr-1">{account?.account_name || 'your_account'}</span>
@@ -83,7 +106,6 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
     );
   }
 
-  // Facebook / default
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm max-w-md mx-auto">
       <div className="flex items-center gap-3 px-4 py-3">
@@ -103,7 +125,7 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
         </p>
       </div>
       {mediaUrl && (
-        <img src={mediaUrl} alt="" className="w-full object-cover max-h-72" onError={e => e.target.style.display='none'} />
+        <img src={mediaUrl} alt="" className="w-full object-cover max-h-72" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       )}
       <div className="flex border-t border-gray-100 px-4 py-2 gap-4 text-gray-400 text-sm">
         <button className="flex items-center gap-1.5 hover:text-blue-500 transition-colors">👍 Like</button>
@@ -114,15 +136,30 @@ function PostPreview({ account, content, hashtags, mediaUrl, scheduledAt }) {
   );
 }
 
+interface FormState {
+  accountId: string | number;
+  content: string;
+  hashtags: string[];
+  mediaUrls: string[];
+  scheduledAt: string;
+}
+
+interface FormErrors {
+  accountId?: string;
+  content?: string;
+  scheduledAt?: string;
+}
+
 export default function PostComposer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('edit');
-  const textareaRef = useRef(null);
+  const templateId = searchParams.get('template_id');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [accounts, setAccounts] = useState([]);
-  const [form, setForm] = useState({
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [form, setForm] = useState<FormState>({
     accountId: '',
     content: '',
     hashtags: [],
@@ -132,13 +169,15 @@ export default function PostComposer() {
   const [hashtagInput, setHashtagInput] = useState('');
   const [imageInput, setImageInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('compose'); // 'compose' | 'preview'
+  const [suggestingHashtags, setSuggestingHashtags] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [activeTab, setActiveTab] = useState<'compose' | 'preview'>('compose');
+  const [loadedTemplate, setLoadedTemplate] = useState<{ name: string } | null>(null);
 
   useEffect(() => {
-    accountsAPI.list().then(res => setAccounts(res.data.accounts));
+    accountsAPI.list().then((res: { data: { accounts: Account[] } }) => setAccounts(res.data.accounts));
     if (editId) {
-      postsAPI.get(editId).then(res => {
+      postsAPI.get(editId).then((res: { data: { post: { account_id: string | number; content: string; hashtags?: string[]; media_urls?: string[]; scheduled_at: string } } }) => {
         const p = res.data.post;
         setForm({
           accountId: p.account_id,
@@ -148,17 +187,44 @@ export default function PostComposer() {
           scheduledAt: dayjs(p.scheduled_at).format('YYYY-MM-DDTHH:mm'),
         });
       });
+    } else if (templateId) {
+      templatesAPI.get(templateId).then((res: { data: { template: { name: string; content?: string; hashtags?: string[] } } }) => {
+        const tpl = res.data.template;
+        setLoadedTemplate(tpl);
+        setForm(f => ({
+          ...f,
+          content: tpl.content || '',
+          hashtags: Array.isArray(tpl.hashtags) ? tpl.hashtags : [],
+        }));
+        toast.success(`Template "${tpl.name}" loaded!`);
+        if (tpl.content) {
+          setSuggestingHashtags(true);
+          aiAPI.hashtags({ content: tpl.content, platform: 'instagram', niche: 'general' })
+            .then((hRes: { data?: { suggested?: string[] } }) => {
+              const suggested = hRes.data?.suggested || [];
+              if (suggested.length > 0) {
+                setForm(f => ({
+                  ...f,
+                  hashtags: [...new Set([...(Array.isArray(tpl.hashtags) ? tpl.hashtags : []), ...suggested])],
+                }));
+                toast.success(`✨ AI suggested ${suggested.length} hashtags!`);
+              }
+            })
+            .catch(() => { /* silently ignore AI hashtag failure */ })
+            .finally(() => setSuggestingHashtags(false));
+        }
+      }).catch(() => toast.error('Failed to load template'));
     }
-  }, [editId]);
+  }, [editId, templateId]); // eslint-disable-line
 
   const selectedAccount = accounts.find(a => a.id === form.accountId);
-  const platformConfig = PLATFORM_LIMITS[selectedAccount?.platform] || DEFAULT_LIMIT;
+  const platformConfig = PLATFORM_LIMITS[selectedAccount?.platform || ''] || DEFAULT_LIMIT;
   const charCount = form.content.length;
   const charMax = platformConfig.max;
   const charPercent = Math.min((charCount / charMax) * 100, 100);
 
-  const validate = () => {
-    const errs = {};
+  const validate = (): boolean => {
+    const errs: FormErrors = {};
     if (!form.accountId) errs.accountId = 'Please select an account';
     if (!form.content.trim()) errs.content = 'Post content is required';
     if (charCount > charMax) errs.content = `Content exceeds ${platformConfig.label} limit of ${charMax.toLocaleString()} characters`;
@@ -168,7 +234,7 @@ export default function PostComposer() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!validate()) { setActiveTab('compose'); return; }
     setLoading(true);
@@ -188,8 +254,9 @@ export default function PostComposer() {
         toast.success(t('composer.success', 'Post scheduled! 🎉'));
       }
       navigate('/calendar');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to schedule post');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Failed to schedule post');
     } finally {
       setLoading(false);
     }
@@ -205,7 +272,7 @@ export default function PostComposer() {
     setHashtagInput('');
   };
 
-  const removeHashtag = (tag) => setForm(f => ({ ...f, hashtags: f.hashtags.filter(h => h !== tag) }));
+  const removeHashtag = (tag: string) => setForm(f => ({ ...f, hashtags: f.hashtags.filter(h => h !== tag) }));
 
   const addImage = () => {
     const url = imageInput.trim();
@@ -225,7 +292,6 @@ export default function PostComposer() {
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">Schedule content to your social accounts</p>
         </div>
-        {/* Compose / Preview tabs */}
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
           <button
             onClick={() => setActiveTab('compose')}
@@ -247,7 +313,6 @@ export default function PostComposer() {
       </div>
 
       {activeTab === 'preview' ? (
-        /* ─── Preview Panel ─── */
         <div className="space-y-6">
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-6">Live preview of how your post will look</p>
@@ -267,7 +332,7 @@ export default function PostComposer() {
               ← Back to Edit
             </button>
             <button
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               disabled={loading}
               className="px-8 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #8b5cf6 100%)' }}
@@ -277,15 +342,23 @@ export default function PostComposer() {
           </div>
         </div>
       ) : (
-        /* ─── Compose Panel ─── */
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Form */}
           <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-4">
+            {/* Template loaded banner */}
+            {loadedTemplate && (
+              <div className="flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3">
+                <span className="text-lg">📋</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-violet-800">Template loaded: {loadedTemplate.name}</p>
+                  <p className="text-xs text-violet-600">Content and hashtags pre-filled. Edit as needed.</p>
+                </div>
+                <button type="button" onClick={() => setLoadedTemplate(null)} className="text-violet-400 hover:text-violet-600">×</button>
+              </div>
+            )}
             {/* Account selector */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <label className="block text-sm font-bold text-gray-700 mb-3">
-                Select Account
-              </label>
+              <label className="block text-sm font-bold text-gray-700 mb-3">Select Account</label>
               {accounts.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
                   <p className="text-gray-400 text-sm mb-3">No accounts connected yet</p>
@@ -313,7 +386,7 @@ export default function PostComposer() {
                         <input
                           type="radio"
                           name="accountId"
-                          value={acc.id}
+                          value={String(acc.id)}
                           checked={isSelected}
                           onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}
                           className="sr-only"
@@ -356,7 +429,6 @@ export default function PostComposer() {
                   errors.content ? 'border-red-300 focus:ring-red-100' : 'border-gray-200 focus:ring-violet-100'
                 }`}
               />
-              {/* Char counter */}
               <div className="flex items-center justify-between mt-3">
                 {errors.content
                   ? <p className="text-red-500 text-xs">{errors.content}</p>
@@ -386,7 +458,33 @@ export default function PostComposer() {
 
             {/* Hashtags */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <label className="block text-sm font-bold text-gray-700 mb-3">Hashtags</label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-bold text-gray-700">Hashtags</label>
+                <button
+                  type="button"
+                  disabled={suggestingHashtags || !form.content.trim()}
+                  onClick={async () => {
+                    if (!form.content.trim()) { toast.error('Write some content first'); return; }
+                    setSuggestingHashtags(true);
+                    try {
+                      const platform = accounts.find(a => a.id === form.accountId)?.platform || 'instagram';
+                      const res = await aiAPI.hashtags({ content: form.content, platform, niche: 'general' });
+                      const suggested: string[] = res.data?.suggested || [];
+                      if (suggested.length > 0) {
+                        setForm(f => ({ ...f, hashtags: [...new Set([...f.hashtags, ...suggested])] }));
+                        toast.success(`✨ Added ${suggested.length} AI hashtags!`);
+                      }
+                    } catch { toast.error('Failed to get hashtag suggestions'); }
+                    finally { setSuggestingHashtags(false); }
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-800 bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-all"
+                >
+                  {suggestingHashtags ? (
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : '✨'}
+                  {suggestingHashtags ? 'Suggesting…' : 'AI Suggest'}
+                </button>
+              </div>
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
@@ -454,7 +552,7 @@ export default function PostComposer() {
                       <img
                         src={url} alt=""
                         className="w-24 h-24 object-cover rounded-xl border border-gray-200"
-                        onError={e => { e.target.style.opacity = '0.3'; }}
+                        onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
                       />
                       <button
                         type="button"
@@ -471,9 +569,7 @@ export default function PostComposer() {
 
             {/* Schedule */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <label className="block text-sm font-bold text-gray-700 mb-3">
-                Schedule Time
-              </label>
+              <label className="block text-sm font-bold text-gray-700 mb-3">Schedule Time</label>
               <input
                 type="datetime-local"
                 value={form.scheduledAt}
@@ -486,7 +582,7 @@ export default function PostComposer() {
               {errors.scheduledAt && <p className="text-red-500 text-xs mt-2">{errors.scheduledAt}</p>}
               {form.scheduledAt && !errors.scheduledAt && (
                 <p className="text-xs text-gray-400 mt-2">
-                  📅 Will publish {dayjs(form.scheduledAt).fromNow?.() || 'at scheduled time'}
+                  📅 Will publish at scheduled time
                 </p>
               )}
             </div>

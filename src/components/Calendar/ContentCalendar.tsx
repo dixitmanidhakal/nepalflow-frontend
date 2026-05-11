@@ -9,21 +9,42 @@ import toast from 'react-hot-toast';
 import { postsAPI } from '../../utils/api';
 import { platformIcon, statusBadge } from '../../utils/helpers';
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   scheduled: '#f59e0b',
   published: '#10b981',
   failed:    '#ef4444',
   draft:     '#6b7280',
 };
 
+interface Post {
+  id: string | number;
+  platform: string;
+  content?: string;
+  status: string;
+  scheduled_at: string;
+  account_name?: string;
+  media_urls?: string[];
+  hashtags?: string[];
+}
+
+interface CalendarEvent {
+  id: string | number;
+  title: string;
+  start: string;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  extendedProps: { post: Post };
+}
+
 export default function ContentCalendar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [events, setEvents] = useState([]);
-  const [selectedPost, setSelectedPost] = useState(null);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchCalendarPosts = async (info) => {
+  const fetchCalendarPosts = async (info?: { start: Date }) => {
     setLoading(true);
     try {
       const date = info?.start || new Date();
@@ -32,9 +53,9 @@ export default function ContentCalendar() {
         year: date.getFullYear(),
       });
 
-      const calEvents = res.data.posts.map(post => ({
+      const calEvents: CalendarEvent[] = res.data.posts.map((post: Post) => ({
         id: post.id,
-        title: `${platformIcon(post.platform)} ${post.content?.substring(0, 30)}${post.content?.length > 30 ? '...' : ''}`,
+        title: `${platformIcon(post.platform)} ${post.content?.substring(0, 30)}${post.content && post.content.length > 30 ? '...' : ''}`,
         start: post.scheduled_at,
         backgroundColor: STATUS_COLORS[post.status] || '#6b7280',
         borderColor: STATUS_COLORS[post.status] || '#6b7280',
@@ -43,7 +64,7 @@ export default function ContentCalendar() {
       }));
 
       setEvents(calEvents);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load calendar');
     } finally {
       setLoading(false);
@@ -52,24 +73,45 @@ export default function ContentCalendar() {
 
   useEffect(() => { fetchCalendarPosts(); }, []);
 
-  const handleEventClick = (info) => {
+  const handleEventClick = (info: { event: { extendedProps: { post: Post } } }) => {
     setSelectedPost(info.event.extendedProps.post);
   };
 
-  const handleDateClick = (info) => {
-    const dateStr = info.dateStr;
-    navigate(`/compose?date=${dateStr}`);
+  const handleDateClick = (info: { dateStr: string }) => {
+    navigate(`/compose?date=${info.dateStr}`);
   };
 
-  const handleDelete = async (postId) => {
+  const handleDelete = async (postId: string | number) => {
     if (!window.confirm('Delete this post?')) return;
     try {
       await postsAPI.delete(postId);
       toast.success('Post deleted');
       setEvents(prev => prev.filter(e => e.id !== postId));
       setSelectedPost(null);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Delete failed');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Delete failed');
+    }
+  };
+
+  const handleDuplicate = async (postId: string | number) => {
+    try {
+      const res = await postsAPI.duplicate(postId);
+      toast.success('Post duplicated and scheduled for tomorrow!');
+      const newPost: Post = res.data.post;
+      setEvents(prev => [...prev, {
+        id: newPost.id,
+        title: `${platformIcon(newPost.platform)} ${newPost.content?.substring(0, 30)}${newPost.content && newPost.content.length > 30 ? '...' : ''}`,
+        start: newPost.scheduled_at,
+        backgroundColor: STATUS_COLORS[newPost.status] || '#6b7280',
+        borderColor: STATUS_COLORS[newPost.status] || '#6b7280',
+        textColor: '#ffffff',
+        extendedProps: { post: newPost },
+      }]);
+      setSelectedPost(null);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      toast.error(error.response?.data?.error || 'Duplicate failed');
     }
   };
 
@@ -157,12 +199,12 @@ export default function ContentCalendar() {
             <p className="text-sm text-gray-800 whitespace-pre-wrap mb-4">{selectedPost.content}</p>
 
             {/* Media preview */}
-            {selectedPost.media_urls?.length > 0 && (
+            {selectedPost.media_urls && selectedPost.media_urls.length > 0 && (
               <img
                 src={selectedPost.media_urls[0]}
                 alt=""
                 className="w-full rounded-xl object-cover max-h-48 mb-4"
-                onError={e => { e.target.style.display = 'none'; }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             )}
 
@@ -172,7 +214,7 @@ export default function ContentCalendar() {
             </div>
 
             {/* Hashtags */}
-            {selectedPost.hashtags?.length > 0 && (
+            {selectedPost.hashtags && selectedPost.hashtags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-4">
                 {selectedPost.hashtags.map(tag => (
                   <span key={tag} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{tag}</span>
@@ -181,22 +223,30 @@ export default function ContentCalendar() {
             )}
 
             {/* Actions */}
-            {(selectedPost.status === 'scheduled' || selectedPost.status === 'draft') && (
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setSelectedPost(null); navigate(`/compose?edit=${selectedPost.id}`); }}
-                  className="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  ✏️ {t('common.edit')}
-                </button>
-                <button
-                  onClick={() => handleDelete(selectedPost.id)}
-                  className="flex-1 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-medium text-red-600 hover:bg-red-100"
-                >
-                  🗑️ {t('common.delete')}
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => handleDuplicate(selectedPost.id)}
+                className="flex-1 py-2 bg-violet-50 border border-violet-200 rounded-xl text-sm font-medium text-violet-700 hover:bg-violet-100"
+              >
+                📋 Duplicate
+              </button>
+              {(selectedPost.status === 'scheduled' || selectedPost.status === 'draft') && (
+                <>
+                  <button
+                    onClick={() => { setSelectedPost(null); navigate(`/compose?edit=${selectedPost.id}`); }}
+                    className="flex-1 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    ✏️ {t('common.edit')}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(selectedPost.id)}
+                    className="flex-1 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-medium text-red-600 hover:bg-red-100"
+                  >
+                    🗑️ {t('common.delete')}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
