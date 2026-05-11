@@ -207,8 +207,17 @@ export default function AccountsPage() {
     const width = 520, height = 640;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
+
+    // Facebook and Instagram pages are connected via a dedicated route that
+    // requests page-management scopes and stores the pages for the current user.
+    let url = `${API_URL}/auth/${provider}`;
+    if (provider === 'facebook' || provider === 'instagram') {
+      const token = localStorage.getItem('nepalflow_token') || '';
+      url = `${API_URL}/auth/facebook/connect?token=${encodeURIComponent(token)}`;
+    }
+
     const popup = window.open(
-      `${API_URL}/auth/${provider}`,
+      url,
       `${provider}_connect`,
       `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
     );
@@ -227,7 +236,13 @@ export default function AccountsPage() {
         const res = await authAPI.getMe(event.data.token);
         auth?.login(event.data.token, res.data.user);
         await fetchAccounts();
-        toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} connected successfully! 🎉`);
+        const count = event.data.pagesConnected;
+        const label = provider.charAt(0).toUpperCase() + provider.slice(1);
+        toast.success(
+          count != null
+            ? `${count} ${label} page${count !== 1 ? 's' : ''} connected successfully!`
+            : `${label} connected successfully!`
+        );
       } catch {
         await fetchAccounts();
         toast.success('Account connected!');
