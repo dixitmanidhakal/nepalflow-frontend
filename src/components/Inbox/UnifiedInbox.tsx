@@ -20,7 +20,7 @@ const TYPE_CONFIG: Record<string, { icon: string; label: string; color: string }
 };
 
 interface Comment {
-  id: string | number;
+  id: string;
   platform: string;
   comment_type: string;
   commenter_name?: string;
@@ -57,8 +57,8 @@ function FilterPill({ label, active, onClick }: FilterPillProps) {
 
 interface MessageCardProps {
   comment: Comment;
-  onReply: (id: string | number, message: string) => Promise<void>;
-  onMarkRead: (id: string | number) => Promise<void>;
+  onReply: (id: string, message: string) => Promise<void>;
+  onMarkRead: (id: string) => Promise<void>;
 }
 
 function MessageCard({ comment, onReply, onMarkRead }: MessageCardProps) {
@@ -264,7 +264,7 @@ export default function UnifiedInbox() {
     }
   };
 
-  const handleReply = async (id: string | number, message: string) => {
+  const handleReply = async (id: string, message: string) => {
     try {
       await inboxAPI.reply(id, message);
       toast.success('Reply sent! ✓');
@@ -277,7 +277,7 @@ export default function UnifiedInbox() {
     }
   };
 
-  const handleMarkRead = async (id: string | number) => {
+  const handleMarkRead = async (id: string) => {
     try {
       await inboxAPI.markRead(id);
       setComments(prev => prev.map(c => c.id === id ? { ...c, is_read: 1 } : c));

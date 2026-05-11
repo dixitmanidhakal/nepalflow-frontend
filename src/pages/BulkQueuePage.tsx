@@ -27,16 +27,16 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
 };
 
 interface QueueItemData {
-  id: string | number;
+  id: string;
   platform: string;
   content: string;
   status: string;
   scheduled_at?: string;
-  account_id?: string | number;
+  account_id?: string;
 }
 
 interface Account {
-  id: string | number;
+  id: string;
   platform: string;
   account_name?: string;
 }
@@ -45,8 +45,8 @@ interface Account {
 interface QueueItemProps {
   item: QueueItemData;
   accounts: Account[];
-  onDelete: (id: string | number) => void;
-  onPublish: (id: string | number) => void;
+  onDelete: (id: string) => void;
+  onPublish: (id: string) => void;
 }
 
 function QueueItem({ item, accounts, onDelete, onPublish }: QueueItemProps) {
@@ -344,7 +344,7 @@ export default function BulkQueuePage() {
     }
   };
 
-  const handleDelete = async (id: string | number) => {
+  const handleDelete = async (id: string) => {
     try {
       await queueAPI.delete(id);
       setItems(prev => prev.filter(i => i.id !== id));
@@ -353,7 +353,7 @@ export default function BulkQueuePage() {
     }
   };
 
-  const handlePublishOne = async (id: string | number) => {
+  const handlePublishOne = async (id: string) => {
     try {
       await queueAPI.update(id, { status: 'scheduled' });
       setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'scheduled' } : i));

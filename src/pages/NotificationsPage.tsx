@@ -23,7 +23,7 @@ const NOTIF_TYPES: Record<string, NotifTypeConfig> = {
 };
 
 interface Notification {
-  id: string | number;
+  id: string;
   type: string;
   icon?: string;
   title: string;
@@ -36,8 +36,8 @@ interface Notification {
 // ─── NotifCard ─────────────────────────────────────────────────────────────────
 interface NotifCardProps {
   notif: Notification;
-  onMarkRead: (id: string | number) => void;
-  onDelete: (id: string | number) => void;
+  onMarkRead: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 function NotifCard({ notif, onMarkRead, onDelete }: NotifCardProps) {
@@ -100,8 +100,8 @@ function NotifCard({ notif, onMarkRead, onDelete }: NotifCardProps) {
 interface NotifGroupProps {
   date: string;
   notifs: Notification[];
-  onMarkRead: (id: string | number) => void;
-  onDelete: (id: string | number) => void;
+  onMarkRead: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 function NotifGroup({ date, notifs, onMarkRead, onDelete }: NotifGroupProps) {
@@ -152,7 +152,7 @@ export default function NotificationsPage() {
 
   useEffect(() => { fetchNotifs(true); }, [filter]); // eslint-disable-line
 
-  const handleMarkRead = async (id: string | number) => {
+  const handleMarkRead = async (id: string) => {
     try {
       await notificationsAPI.markRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
@@ -167,7 +167,7 @@ export default function NotificationsPage() {
     } catch { /* silent */ }
   };
 
-  const handleDelete = async (id: string | number) => {
+  const handleDelete = async (id: string) => {
     try {
       await notificationsAPI.delete(id);
       setNotifications(prev => prev.filter(n => n.id !== id));

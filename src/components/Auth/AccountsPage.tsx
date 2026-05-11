@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 interface Account {
-  id: string | number;
+  id: string;
   platform: string;
   account_name?: string;
   profile_pic?: string;
@@ -70,8 +70,8 @@ interface PlatformCardProps {
   config: PlatformConfig;
   accounts: Account[];
   onConnect: (provider: string) => void;
-  onDisconnect: (id: string | number) => void;
-  onToggle: (id: string | number) => void;
+  onDisconnect: (id: string) => void;
+  onToggle: (id: string) => void;
   connecting: string | null;
 }
 
@@ -262,7 +262,7 @@ export default function AccountsPage() {
     }
   };
 
-  const handleDisconnect = async (id: string | number) => {
+  const handleDisconnect = async (id: string) => {
     if (!window.confirm("Disconnect this account? Scheduled posts will remain but won't publish.")) return;
     try {
       await accountsAPI.disconnect(id);
@@ -273,7 +273,7 @@ export default function AccountsPage() {
     }
   };
 
-  const handleToggle = async (id: string | number) => {
+  const handleToggle = async (id: string) => {
     try {
       await accountsAPI.toggle(id);
       setAccounts(prev => prev.map(a =>

@@ -239,10 +239,10 @@ export default function TemplatesPage() {
   const handleSave = async (data: TemplateFormData) => {
     try {
       if (modalTemplate?.id) {
-        await templatesAPI.update(modalTemplate.id, data);
+        await templatesAPI.update(modalTemplate.id, data as unknown as Record<string, unknown>);
         toast.success('Template updated!');
       } else {
-        await templatesAPI.create(data);
+        await templatesAPI.create(data as unknown as Record<string, unknown>);
         toast.success('Template created! 🎉');
       }
       await fetchTemplates();

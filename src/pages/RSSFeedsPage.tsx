@@ -10,7 +10,7 @@ const PLATFORM_ICONS: Record<string, string> = { facebook: '📘', instagram: '�
 const CATEGORY_OPTIONS = ['news', 'tech', 'business', 'entertainment', 'sports', 'health', 'other'];
 
 interface Feed {
-  id: string | number;
+  id: string;
   name: string;
   feed_url?: string;
   url?: string;
@@ -25,7 +25,7 @@ interface Feed {
 }
 
 interface Account {
-  id: string | number;
+  id: string;
   platform: string;
   account_name?: string;
 }
@@ -39,9 +39,9 @@ interface RSSItem {
 // ─── FeedCard ──────────────────────────────────────────────────────────────────
 interface FeedCardProps {
   feed: Feed;
-  onToggle: (id: string | number) => void;
-  onFetch: (id: string | number) => Promise<RSSItem[]>;
-  onDelete: (id: string | number) => void;
+  onToggle: (id: string) => void;
+  onFetch: (id: string) => Promise<RSSItem[]>;
+  onDelete: (id: string) => void;
   onEdit: (feed: Feed) => void;
   accounts: Account[];
 }
@@ -238,7 +238,7 @@ interface FeedFormState {
 interface FeedModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: FeedFormState & { platforms: string }, id?: string | number) => Promise<void>;
+  onSave: (data: Omit<FeedFormState, 'platforms'> & { platforms: string }, id?: string) => Promise<void>;
   initial: Partial<Feed> | null;
 }
 
@@ -422,7 +422,7 @@ export default function RSSFeedsPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleSave = async (data: FeedFormState & { platforms: string }, id?: string | number) => {
+  const handleSave = async (data: Omit<FeedFormState, 'platforms'> & { platforms: string }, id?: string) => {
     try {
       const payload = { ...data, feed_url: data.url };
       if (id) {
@@ -441,7 +441,7 @@ export default function RSSFeedsPage() {
     }
   };
 
-  const handleToggle = async (id: string | number) => {
+  const handleToggle = async (id: string) => {
     try {
       const res = await rssAPI.toggle(id);
       setFeeds(prev => prev.map(f => f.id === id ? { ...f, is_active: res.data.is_active } : f));
@@ -450,7 +450,7 @@ export default function RSSFeedsPage() {
     }
   };
 
-  const handleFetch = async (id: string | number): Promise<RSSItem[]> => {
+  const handleFetch = async (id: string): Promise<RSSItem[]> => {
     try {
       const res = await rssAPI.fetch(id);
       return res.data.items || [];
@@ -461,7 +461,7 @@ export default function RSSFeedsPage() {
     }
   };
 
-  const handleDelete = async (id: string | number) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this RSS feed?')) return;
     try {
       await rssAPI.delete(id);

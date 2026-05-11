@@ -31,7 +31,7 @@ const TONE_STYLES = [
 ];
 
 interface Responder {
-  id: string | number;
+  id: string;
   name: string;
   trigger_type: string;
   keywords: string[];
@@ -39,13 +39,13 @@ interface Responder {
   response: string;
   match_type?: string;
   delay_seconds?: number;
-  account_id?: string | number | null;
+  account_id?: string | null;
   is_active: number | boolean;
   match_count?: number;
 }
 
 interface Account {
-  id: string | number;
+  id: string;
   platform: string;
   account_name?: string;
 }
@@ -59,7 +59,7 @@ interface AISuggestion {
 }
 
 interface MatchedRule {
-  id: string | number;
+  id: string;
   name: string;
 }
 
@@ -87,9 +87,9 @@ function StatusBadge({ isActive }: StatusBadgeProps) {
 // ─── ResponderCard ─────────────────────────────────────────────────────────────
 interface ResponderCardProps {
   responder: Responder;
-  onToggle: (id: string | number) => void;
+  onToggle: (id: string) => void;
   onEdit: (responder: Responder) => void;
-  onDelete: (id: string | number) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
 function ResponderCard({ responder, onToggle, onEdit, onDelete }: ResponderCardProps) {
@@ -193,14 +193,14 @@ interface ResponderFormState {
   platforms: string[];
   match_type: string;
   delay_seconds: number;
-  account_id: string | number;
+  account_id: string;
   is_active: number;
 }
 
 interface ResponderModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (data: Omit<ResponderFormState, 'keywordInput'> & { account_id: string | number | null }, id?: string | number) => Promise<void>;
+  onSave: (data: Omit<ResponderFormState, 'keywordInput' | 'account_id'> & { account_id: string | null }, id?: string) => Promise<void>;
   initial: Partial<Responder> | null;
   accounts: Account[];
 }
@@ -575,7 +575,7 @@ export default function AutoRespondersPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleSave = async (data: Omit<ResponderFormState, 'keywordInput'> & { account_id: string | number | null }, id?: string | number) => {
+  const handleSave = async (data: Omit<ResponderFormState, 'keywordInput' | 'account_id'> & { account_id: string | null }, id?: string) => {
     try {
       if (id) {
         await autoRespondersAPI.update(id, data);
@@ -593,7 +593,7 @@ export default function AutoRespondersPage() {
     }
   };
 
-  const handleToggle = async (id: string | number) => {
+  const handleToggle = async (id: string) => {
     try {
       const res = await autoRespondersAPI.toggle(id);
       setResponders(prev => prev.map(r => r.id === id ? { ...r, is_active: res.data.is_active } : r));
@@ -602,7 +602,7 @@ export default function AutoRespondersPage() {
     }
   };
 
-  const handleDelete = async (id: string | number) => {
+  const handleDelete = async (id: string) => {
     try {
       await autoRespondersAPI.delete(id);
       setResponders(prev => prev.filter(r => r.id !== id));

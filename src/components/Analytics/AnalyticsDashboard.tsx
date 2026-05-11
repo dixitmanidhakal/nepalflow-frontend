@@ -181,7 +181,7 @@ export default function AnalyticsDashboard() {
   const baseOptions = {
     responsive: true,
     plugins: {
-      legend: { position: 'top' as const, labels: { font: { size: 12, weight: '600' as const }, usePointStyle: true, pointStyleWidth: 8 } },
+      legend: { position: 'top' as const, labels: { font: { size: 12, weight: 600 as const }, usePointStyle: true, pointStyleWidth: 8 } },
       tooltip: {
         mode: 'index' as const, intersect: false,
         backgroundColor: 'rgba(15,12,41,0.9)',
@@ -333,7 +333,7 @@ export default function AnalyticsDashboard() {
                         responsive: true,
                         cutout: '60%',
                         plugins: {
-                          legend: { position: 'bottom', labels: { font: { size: 11, weight: '600' as const }, usePointStyle: true } },
+                          legend: { position: 'bottom' as const, labels: { font: { size: 11, weight: 600 as const }, usePointStyle: true } },
                         },
                       }}
                     />

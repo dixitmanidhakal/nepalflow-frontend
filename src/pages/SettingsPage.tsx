@@ -28,7 +28,7 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 interface Account {
-  id: string | number;
+  id: string;
   platform: string;
   account_name?: string;
   is_active?: number | boolean;
@@ -190,7 +190,7 @@ export default function SettingsPage() {
     } catch { /* silent */ }
   };
 
-  const handleDisconnect = async (id: string | number, name?: string) => {
+  const handleDisconnect = async (id: string, name?: string) => {
     if (!window.confirm(`Disconnect ${name}?`)) return;
     try {
       await accountsAPI.disconnect(id);
@@ -524,7 +524,7 @@ export default function SettingsPage() {
                     try {
                       const res = await postsAPI.list({ limit: 200 });
                       const posts = res.data.posts || [];
-                      await Promise.all(posts.map((p: { id: string | number }) => postsAPI.delete(p.id)));
+                      await Promise.all(posts.map((p: { id: string }) => postsAPI.delete(p.id)));
                       toast.success(`Deleted ${posts.length} post${posts.length !== 1 ? 's' : ''}`);
                     } catch {
                       toast.error('Failed to delete posts');

@@ -5,6 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import type { EventClickArg } from '@fullcalendar/core';
 import toast from 'react-hot-toast';
 import { postsAPI } from '../../utils/api';
 import { platformIcon, statusBadge } from '../../utils/helpers';
@@ -17,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 interface Post {
-  id: string | number;
+  id: string;
   platform: string;
   content?: string;
   status: string;
@@ -28,7 +29,7 @@ interface Post {
 }
 
 interface CalendarEvent {
-  id: string | number;
+  id: string;
   title: string;
   start: string;
   backgroundColor: string;
@@ -73,15 +74,15 @@ export default function ContentCalendar() {
 
   useEffect(() => { fetchCalendarPosts(); }, []);
 
-  const handleEventClick = (info: { event: { extendedProps: { post: Post } } }) => {
-    setSelectedPost(info.event.extendedProps.post);
+  const handleEventClick = (info: EventClickArg) => {
+    setSelectedPost(info.event.extendedProps.post as Post);
   };
 
   const handleDateClick = (info: { dateStr: string }) => {
     navigate(`/compose?date=${info.dateStr}`);
   };
 
-  const handleDelete = async (postId: string | number) => {
+  const handleDelete = async (postId: string) => {
     if (!window.confirm('Delete this post?')) return;
     try {
       await postsAPI.delete(postId);
@@ -94,7 +95,7 @@ export default function ContentCalendar() {
     }
   };
 
-  const handleDuplicate = async (postId: string | number) => {
+  const handleDuplicate = async (postId: string) => {
     try {
       const res = await postsAPI.duplicate(postId);
       toast.success('Post duplicated and scheduled for tomorrow!');

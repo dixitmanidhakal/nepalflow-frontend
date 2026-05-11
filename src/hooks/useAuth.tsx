@@ -7,6 +7,12 @@ interface User {
   name: string;
   email?: string;
   language?: string;
+  bio?: string | null;
+  website?: string | null;
+  timezone?: string | null;
+  avatar_url?: string | null;
+  provider?: string;
+  created_at?: string;
   [key: string]: unknown;
 }
 
@@ -76,4 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
